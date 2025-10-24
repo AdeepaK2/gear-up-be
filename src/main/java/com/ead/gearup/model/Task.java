@@ -43,7 +43,19 @@ public class Task {
     private Integer estimatedHours;
 
     @Column(nullable = false)
-    private Double cost;
+    private Double estimatedCost;
+
+    @Column(nullable = false)
+    private String category;
+
+    @Column(nullable = false)
+    private String priority;
+
+    @Column(nullable = false)
+    private String notes;
+
+    @Column(nullable = false)
+    private String requestedBy;
 
     @ManyToOne
     @JoinColumn(name = "project_id") // foreign key column
@@ -68,4 +80,9 @@ public class Task {
     protected void onCreate() {
         this.createdAt = LocalDateTime.now();
     }
+
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "employee_id", nullable = false)
+    private Employee employee;
+
 }

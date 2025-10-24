@@ -1,11 +1,10 @@
 package com.ead.gearup.controller;
 
-import com.ead.gearup.dto.customer.CustomerRequestDTO;
-import com.ead.gearup.dto.customer.CustomerResponseDTO;
-import com.ead.gearup.dto.customer.CustomerUpdateDTO;
+import com.ead.gearup.dto.customer.*;
 import com.ead.gearup.dto.response.ApiResponseDTO;
 import com.ead.gearup.enums.UserRole;
 import com.ead.gearup.service.CustomerService;
+import com.ead.gearup.service.VehicleService;
 import com.ead.gearup.validation.RequiresRole;
 
 import io.swagger.v3.oas.annotations.Operation;
@@ -29,6 +28,7 @@ import java.util.List;
 public class CustomerController {
 
     private final CustomerService customerService;
+    private final VehicleService vehicleService;
 
     @GetMapping
     @Operation(summary = "Get all customers")
@@ -121,4 +121,69 @@ public class CustomerController {
 
         return ResponseEntity.ok(response);
     }
+
+    //Header/GetProfile
+    @GetMapping("/{id}/header")
+    @RequiresRole(UserRole.CUSTOMER)
+    @Operation(summary = "Get customer header info (name & profile image)")
+    public ResponseEntity<ApiResponseDTO<CustomerHeaderDTO>> getHeaderInfo(
+            @PathVariable Long id,
+            HttpServletRequest request) {
+
+        CustomerHeaderDTO header = customerService.getHeaderInfo(id);
+
+        ApiResponseDTO<CustomerHeaderDTO> response = ApiResponseDTO.<CustomerHeaderDTO>builder()
+                .status("success")
+                .message("Customer header info retrieved successfully")
+                .data(header)
+                .timestamp(Instant.now())
+                .path(request.getRequestURI())
+                .build();
+
+        return ResponseEntity.ok(response);
+    }
+
+      //Header/Get Notification
+//    @GetMapping("/{id}/notifications")
+//    @Operation(summary = "Get notifications for a customer")
+//    public ResponseEntity<ApiResponseDTO<List<NotificationDTO>>> getNotifications(
+//            @PathVariable Long id,
+//            HttpServletRequest request) {
+//
+//        List<NotificationDTO> notifications = customerService.getNotifications(id);
+//
+//        ApiResponseDTO<List<NotificationDTO>> response = ApiResponseDTO.<List<NotificationDTO>>builder()
+//                .status("success")
+//                .message("Customer notifications retrieved successfully")
+//                .data(notifications)
+//                .timestamp(Instant.now())
+//                .path(request.getRequestURI())
+//                .build();
+//
+//        return ResponseEntity.ok(response);
+//    }
+
+    //Customer Dashboard
+    @GetMapping("/{id}/dashboard")
+    @RequiresRole(UserRole.CUSTOMER)
+    @Operation(summary = "Get full customer dashboard details")
+    public ResponseEntity<ApiResponseDTO<CustomerDashboardDTO>> getDashboard(
+            @PathVariable Long id,
+            HttpServletRequest request) {
+
+        CustomerDashboardDTO dashboard = customerService.getDashboard(id);
+
+        ApiResponseDTO<CustomerDashboardDTO> response = ApiResponseDTO.<CustomerDashboardDTO>builder()
+                .status("success")
+                .message("Customer dashboard retrieved successfully")
+                .data(dashboard)
+                .timestamp(Instant.now())
+                .path(request.getRequestURI())
+                .build();
+
+        return ResponseEntity.ok(response);
+    }
+
 }
+
+

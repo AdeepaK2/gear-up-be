@@ -6,6 +6,7 @@ import java.time.Instant;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.CookieValue;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PostMapping;
@@ -18,10 +19,15 @@ import com.ead.gearup.dto.response.ApiResponseDTO;
 import com.ead.gearup.dto.response.JwtTokensDTO;
 import com.ead.gearup.dto.response.LoginResponseDTO;
 import com.ead.gearup.dto.response.UserResponseDTO;
+import com.ead.gearup.dto.user.PasswordChangeRequest;
+import com.ead.gearup.dto.user.PasswordChangeResponse;
 import com.ead.gearup.dto.user.UserCreateDTO;
 import com.ead.gearup.dto.user.UserLoginDTO;
+import com.ead.gearup.enums.UserRole;
 import com.ead.gearup.service.AuthService;
+import com.ead.gearup.service.UserService;
 import com.ead.gearup.service.auth.JwtService;
+import com.ead.gearup.validation.RequiresRole;
 
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.http.MediaType;
@@ -50,20 +56,12 @@ public class AuthController {
 
     private final JwtService jwtService;
     private final AuthService authService;
+    private final UserService userService;
 
     @PostMapping(value = "/register", consumes = MediaType.APPLICATION_JSON_VALUE, produces = MediaType.APPLICATION_JSON_VALUE)
-    @Operation(
-        summary = "Register a new user",
-        description = "Creates a new user account. After registration, a verification email will be sent to the provided email address."
-    )
+    @Operation(summary = "Register a new user", description = "Creates a new user account. After registration, a verification email will be sent to the provided email address.")
     @ApiResponses(value = {
-        @ApiResponse(
-            responseCode = "201",
-            description = "User registered successfully",
-            content = @Content(
-                mediaType = "application/json",
-                schema = @Schema(implementation = ApiResponseDTO.class),
-                examples = @ExampleObject(value = """
+            @ApiResponse(responseCode = "201", description = "User registered successfully", content = @Content(mediaType = "application/json", schema = @Schema(implementation = ApiResponseDTO.class), examples = @ExampleObject(value = """
                     {
                         "status": "success",
                         "message": "User registered successfully! Please verify your email to activate your account.",
@@ -78,22 +76,11 @@ public class AuthController {
                         "timestamp": "2023-10-15T10:30:00Z",
                         "path": "/api/v1/auth/register"
                     }
-                    """)
-            )
-        ),
-        @ApiResponse(
-            responseCode = "400",
-            description = "Invalid input data or email already exists",
-            content = @Content(
-                mediaType = "application/json",
-                schema = @Schema(implementation = ApiResponseDTO.class)
-            )
-        )
+                    """))),
+            @ApiResponse(responseCode = "400", description = "Invalid input data or email already exists", content = @Content(mediaType = "application/json", schema = @Schema(implementation = ApiResponseDTO.class)))
     })
     public ResponseEntity<ApiResponseDTO<UserResponseDTO>> createUser(
-            @Valid @RequestBody 
-            @Parameter(description = "User registration details", required = true)
-            UserCreateDTO userCreateDTO,
+            @Valid @RequestBody @Parameter(description = "User registration details", required = true) UserCreateDTO userCreateDTO,
             HttpServletRequest request) {
 
         UserResponseDTO createdUser = authService.createUser(userCreateDTO);
@@ -110,32 +97,13 @@ public class AuthController {
     }
 
     @GetMapping("/verify-email")
-    @Operation(
-        summary = "Verify email address",
-        description = "Verifies a user's email address using the verification token sent via email"
-    )
+    @Operation(summary = "Verify email address", description = "Verifies a user's email address using the verification token sent via email")
     @ApiResponses(value = {
-        @ApiResponse(
-            responseCode = "200",
-            description = "Email verified successfully",
-            content = @Content(
-                mediaType = "application/json",
-                schema = @Schema(implementation = ApiResponseDTO.class)
-            )
-        ),
-        @ApiResponse(
-            responseCode = "400",
-            description = "Invalid or expired verification token",
-            content = @Content(
-                mediaType = "application/json",
-                schema = @Schema(implementation = ApiResponseDTO.class)
-            )
-        )
+            @ApiResponse(responseCode = "200", description = "Email verified successfully", content = @Content(mediaType = "application/json", schema = @Schema(implementation = ApiResponseDTO.class))),
+            @ApiResponse(responseCode = "400", description = "Invalid or expired verification token", content = @Content(mediaType = "application/json", schema = @Schema(implementation = ApiResponseDTO.class)))
     })
     public ResponseEntity<ApiResponseDTO<Object>> verifyEmail(
-            @RequestParam("token") 
-            @Parameter(description = "Email verification token", required = true, example = "eyJhbGciOiJIUzI1NiJ9...")
-            String token,
+            @RequestParam("token") @Parameter(description = "Email verification token", required = true, example = "eyJhbGciOiJIUzI1NiJ9...") String token,
             HttpServletRequest request) {
 
         boolean verified = authService.verifyEmailToken(token);
@@ -154,32 +122,13 @@ public class AuthController {
     }
 
     @PostMapping("/resend-email")
-    @Operation(
-        summary = "Resend verification email",
-        description = "Resends the email verification link to the user's email address"
-    )
+    @Operation(summary = "Resend verification email", description = "Resends the email verification link to the user's email address")
     @ApiResponses(value = {
-        @ApiResponse(
-            responseCode = "200",
-            description = "Verification email resent successfully",
-            content = @Content(
-                mediaType = "application/json",
-                schema = @Schema(implementation = ApiResponseDTO.class)
-            )
-        ),
-        @ApiResponse(
-            responseCode = "400",
-            description = "Invalid email or user not found",
-            content = @Content(
-                mediaType = "application/json",
-                schema = @Schema(implementation = ApiResponseDTO.class)
-            )
-        )
+            @ApiResponse(responseCode = "200", description = "Verification email resent successfully", content = @Content(mediaType = "application/json", schema = @Schema(implementation = ApiResponseDTO.class))),
+            @ApiResponse(responseCode = "400", description = "Invalid email or user not found", content = @Content(mediaType = "application/json", schema = @Schema(implementation = ApiResponseDTO.class)))
     })
     public ResponseEntity<ApiResponseDTO<Object>> resendEmail(
-            @Valid @RequestBody 
-            @Parameter(description = "Email address to resend verification", required = true)
-            ResendEmailRequestDTO resendEmailRequestDTO,
+            @Valid @RequestBody @Parameter(description = "Email address to resend verification", required = true) ResendEmailRequestDTO resendEmailRequestDTO,
             HttpServletRequest httpRequest) {
 
         authService.resendEmail(resendEmailRequestDTO);
@@ -286,5 +235,52 @@ public class AuthController {
         return ResponseEntity.ok()
                 .header(HttpHeaders.SET_COOKIE, deleteCookie.toString())
                 .body(apiResponse);
+    }
+
+    @PostMapping("/change-password")
+    @RequiresRole({ UserRole.CUSTOMER, UserRole.EMPLOYEE, UserRole.ADMIN })
+    @Operation(summary = "Change user password", description = "Allows authenticated users to change their password")
+    public ResponseEntity<ApiResponseDTO<PasswordChangeResponse>> changePassword(
+            @Valid @RequestBody PasswordChangeRequest request,
+            Authentication authentication,
+            HttpServletRequest httpRequest) {
+
+        String userEmail = authentication.getName();
+        PasswordChangeResponse response = userService.changePassword(userEmail, request);
+
+        ApiResponseDTO<PasswordChangeResponse> apiResponse = ApiResponseDTO.<PasswordChangeResponse>builder()
+                .status("success")
+                .message("Password changed successfully")
+                .data(response)
+                .timestamp(Instant.now())
+                .path(httpRequest.getRequestURI())
+                .build();
+
+        return ResponseEntity.ok(apiResponse);
+    }
+
+    @GetMapping("/password-status")
+    @RequiresRole({ UserRole.CUSTOMER, UserRole.EMPLOYEE, UserRole.ADMIN })
+    @Operation(summary = "Check if password change is required", description = "Check if user needs to change their password")
+    public ResponseEntity<ApiResponseDTO<PasswordChangeResponse>> getPasswordStatus(
+            Authentication authentication,
+            HttpServletRequest httpRequest) {
+
+        String userEmail = authentication.getName();
+        boolean requiresChange = userService.requiresPasswordChange(userEmail);
+
+        PasswordChangeResponse response = new PasswordChangeResponse(
+                requiresChange ? "Password change required" : "Password is up to date",
+                requiresChange);
+
+        ApiResponseDTO<PasswordChangeResponse> apiResponse = ApiResponseDTO.<PasswordChangeResponse>builder()
+                .status("success")
+                .message("Password status retrieved")
+                .data(response)
+                .timestamp(Instant.now())
+                .path(httpRequest.getRequestURI())
+                .build();
+
+        return ResponseEntity.ok(apiResponse);
     }
 }

@@ -12,6 +12,7 @@ import java.time.LocalDate;
 public class CreateEmployeeDTO {
 
     private String specialization;
-
     private LocalDate hireDate;
+    private String profileImage;
+    private String phoneNumber;
 }
