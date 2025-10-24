@@ -1,0 +1,10 @@
+type Vehicle {
+  vehicleId: ID!
+  vin: String
+  licensePlate: String
+  model: String
+  make: String
+  year: Int
+  customer: Customer
+  appointments: [Appointment]
+}

@@ -2,6 +2,7 @@ package com.ead.gearup.service;
 
 import com.ead.gearup.dto.customer.CustomerRequestDTO;
 import com.ead.gearup.dto.customer.CustomerResponseDTO;
+import com.ead.gearup.dto.customer.CustomerSearchResponseDTO;
 import com.ead.gearup.dto.customer.CustomerUpdateDTO;
 import com.ead.gearup.dto.customer.CustomerVehicleDTO;
 import com.ead.gearup.dto.customer.CustomerHeaderDTO;
@@ -10,6 +11,7 @@ import com.ead.gearup.dto.customer.CustomerProfileDTO;
 import com.ead.gearup.dto.customer.CustomerSummaryDTO;
 import com.ead.gearup.dto.customer.CustomerActivityDTO;
 import com.ead.gearup.enums.AppointmentStatus;
+import com.ead.gearup.dto.response.UserResponseDTO;
 import com.ead.gearup.exception.CustomerNotFoundException;
 import com.ead.gearup.exception.UnauthorizedCustomerAccessException;
 import com.ead.gearup.model.Customer;
@@ -255,5 +257,18 @@ public class CustomerService {
                 .build();
     }
 
+
+    public List<CustomerSearchResponseDTO> searchCustomersByCustomerName(String name) {
+        return customerRepository.findCustomerSearchResultsNative(name)
+                .stream()
+                .map(p -> new CustomerSearchResponseDTO(
+                        p.getCustomerId(),
+                        new UserResponseDTO(
+                                p.getName(),
+                                p.getEmail()
+                        ),
+                        p.getPhoneNumber()))
+                .collect(Collectors.toList());
+    }
 
 }

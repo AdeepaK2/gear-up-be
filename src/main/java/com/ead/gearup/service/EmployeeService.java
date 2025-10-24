@@ -6,7 +6,9 @@ import org.springframework.transaction.annotation.Transactional;
 
 import com.ead.gearup.dto.employee.CreateEmployeeDTO;
 import com.ead.gearup.dto.employee.EmployeeResponseDTO;
+import com.ead.gearup.dto.employee.EmployeeSearchResponseDTO;
 import com.ead.gearup.dto.employee.UpdateEmployeeDTO;
+import com.ead.gearup.dto.response.UserResponseDTO;
 import com.ead.gearup.enums.UserRole;
 import com.ead.gearup.exception.EmployeeNotFoundException;
 import com.ead.gearup.exception.UnauthorizedCustomerAccessException;
@@ -114,5 +116,18 @@ public class EmployeeService {
 
         // Delete the employee safely
         employeeRepository.delete(employee);
+    }
+
+    public List<EmployeeSearchResponseDTO> searchEmployeesByEmployeeName(String name) {
+        return employeeRepository.findEmployeeSearchResultsNative(name)
+                .stream()
+                .map(p -> new EmployeeSearchResponseDTO(
+                        p.getEmployeeId(),
+                        new UserResponseDTO(
+                                p.getName(),
+                                p.getEmail()),
+                        p.getSpecialization(),
+                        p.getHireDate()))
+                .collect(Collectors.toList());
     }
 }
