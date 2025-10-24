@@ -14,7 +14,7 @@ import org.springframework.data.jpa.repository.JpaRepository;
 @Repository
 public interface AppointmentRepository extends JpaRepository<Appointment, Long> {
 
-    @Query(value = "SELECT a.appointment_id AS appointmentId, a.date, a.status, a.notes " +
+    @Query(value = "SELECT a.appointment_id AS appointmentId, a.date, a.status, a.notes, a.start_time, a.end_time " +
             "FROM appointment a " +
             "JOIN customers c ON a.customer_id = c.customer_id " +
             "JOIN users u ON c.user_id = u.user_id " +
