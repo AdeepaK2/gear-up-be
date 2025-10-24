@@ -154,8 +154,8 @@ public class TaskService {
         Employee employee = employeeRepository.findById(employeeId)
                 .orElseThrow(() -> new UserNotFoundException("Employee not found with ID: " + employeeId));
 
-        Long assigned = taskRepository.countByEmployeeAndStatus(employee, TaskStatus.CONFIRMED);
-        Long inProgress = taskRepository.countByEmployeeAndStatus(employee, TaskStatus.IN_PROGRESS);
+        Long assigned = taskRepository.countByEmployeeAndStatus(employee, TaskStatus.ACCEPTED);
+        Long inProgress = taskRepository.countByEmployeeAndStatus(employee, TaskStatus.PENDING);
         Long completedToday = taskRepository.countCompletedToday(employee);
 
         return Map.of(
@@ -178,7 +178,7 @@ public class TaskService {
 
         // Filter in-progress tasks
         List<String> taskNames = tasks.stream()
-                .filter(t->t.getStatus() == TaskStatus.IN_PROGRESS)
+                .filter(t->t.getStatus() == TaskStatus.PENDING)
                 .map(Task::getName)
                 .toList();
 

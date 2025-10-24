@@ -4,7 +4,6 @@ import com.ead.gearup.dto.customer.*;
 import com.ead.gearup.dto.response.ApiResponseDTO;
 import com.ead.gearup.enums.UserRole;
 import com.ead.gearup.service.CustomerService;
-import com.ead.gearup.service.VehicleService;
 import com.ead.gearup.validation.RequiresRole;
 
 import io.swagger.v3.oas.annotations.Operation;
@@ -28,7 +27,7 @@ import java.util.List;
 public class CustomerController {
 
     private final CustomerService customerService;
-    private final VehicleService vehicleService;
+    // private final VehicleService vehicleService;
 
     @GetMapping
     @Operation(summary = "Get all customers")

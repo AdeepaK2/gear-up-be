@@ -1,7 +1,6 @@
 package com.ead.gearup.dto.task;
 
 import com.ead.gearup.enums.TaskStatus;
-import jakarta.validation.constraints.Positive;
 import lombok.AllArgsConstructor;
 import lombok.Data;
 import lombok.NoArgsConstructor;

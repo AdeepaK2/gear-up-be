@@ -9,7 +9,6 @@ import com.ead.gearup.dto.employee.CreateEmployeeDTO;
 import com.ead.gearup.dto.employee.EmployeeResponseDTO;
 import com.ead.gearup.dto.employee.UpdateEmployeeDTO;
 import com.ead.gearup.dto.response.ApiResponseDTO;
-import com.ead.gearup.model.Task;
 import com.ead.gearup.service.EmployeeService;
 import com.ead.gearup.service.TaskService;
 

@@ -57,6 +57,7 @@ public class Project {
             joinColumns = @JoinColumn(name = "project_id"),
             inverseJoinColumns = @JoinColumn(name = "task_id")
     )
+    @Builder.Default
     private List<Task> tasks = new ArrayList<>();
 
     @ManyToOne(fetch = FetchType.LAZY)
@@ -69,6 +70,7 @@ public class Project {
             joinColumns = @JoinColumn(name = "project_id"),
             inverseJoinColumns = @JoinColumn(name = "employee_id")
     )
+    @Builder.Default
     private List<Employee> assignedEmployees = new ArrayList<>();
 
     // 🆕 Additional fields
@@ -78,12 +80,16 @@ public class Project {
             joinColumns = @JoinColumn(name = "project_id")
     )
     @Column(name = "request_text")
+    @Builder.Default
     private List<String> additionalRequests = new ArrayList<>();
 
+    @Builder.Default
     private Double totalEstimatedCost = 0.0;
 
+    @Builder.Default
     private Double totalAcceptedCost = 0.0;
 
+    @Builder.Default
     private Integer acceptedServicesCount = 0;
 
     @CreationTimestamp

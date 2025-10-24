@@ -205,7 +205,7 @@ public class AppointmentService {
 
         // Filter appointments for the given date
         List<AppointmentResponseDTO> appointmentsForDate = appointments.stream()
-                .filter(a -> a.getDate().equals(date))
+                .filter(a -> a.getAppointmentDate().equals(date))
                 .toList();
 
         // Generate all slots between 8 AM and 6 PM
