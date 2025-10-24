@@ -1,5 +1,6 @@
 package com.ead.gearup.service;
 
+import com.ead.gearup.dto.vehicle.VehicleResponseDTO;
 import com.ead.gearup.enums.AppointmentStatus;
 import com.ead.gearup.enums.UserRole;
 import com.ead.gearup.exception.UnauthorizedAppointmentAccessException;
@@ -11,6 +12,7 @@ import org.springframework.stereotype.Service;
 
 import com.ead.gearup.dto.appointment.AppointmentCreateDTO;
 import com.ead.gearup.dto.appointment.AppointmentResponseDTO;
+import com.ead.gearup.dto.appointment.AppointmentSearchResponseDTO;
 import com.ead.gearup.dto.appointment.AppointmentUpdateDTO;
 import com.ead.gearup.dto.employee.EmployeeAvailableSlotsDTO;
 import com.ead.gearup.exception.AppointmentNotFoundException;
@@ -90,10 +92,11 @@ public class AppointmentService {
                 .orElseThrow(() -> new AppointmentNotFoundException("Appointment not found: " + appointmentId));
 
         UserRole role = currentUserService.getCurrentUserRole();
-        if(role == UserRole.CUSTOMER){
+        if (role == UserRole.CUSTOMER) {
             Long customerId = currentUserService.getCurrentEntityId();
-            if(!appointment.getCustomer().getCustomerId().equals(customerId)){
-                throw new UnauthorizedAppointmentAccessException("You cannot access another customer's appointment: " + customerId);
+            if (!appointment.getCustomer().getCustomerId().equals(customerId)) {
+                throw new UnauthorizedAppointmentAccessException(
+                        "You cannot access another customer's appointment: " + customerId);
             }
         }
         return converter.convertToResponseDto(appointment);
@@ -104,10 +107,10 @@ public class AppointmentService {
     public List<AppointmentResponseDTO> getAllAppointments() {
         UserRole role = currentUserService.getCurrentUserRole();
 
-        if(role == UserRole.CUSTOMER){
+        if (role == UserRole.CUSTOMER) {
             Long customerId = currentUserService.getCurrentEntityId();
             return appointmentRepository.findAll().stream()
-                    .filter(a->a.getCustomer().getCustomerId().equals(customerId))
+                    .filter(a -> a.getCustomer().getCustomerId().equals(customerId))
                     .map(converter::convertToResponseDto)
                     .toList();
         }
@@ -116,17 +119,18 @@ public class AppointmentService {
                 .toList();
     }
 
-    @RequiresRole({UserRole.CUSTOMER, UserRole.ADMIN})
+    @RequiresRole({ UserRole.CUSTOMER, UserRole.ADMIN })
     public void deleteAppointment(Long appointmentId) {
         Appointment appointment = appointmentRepository.findById(appointmentId)
                 .orElseThrow(() -> new AppointmentNotFoundException("Appointment not found: " + appointmentId));
 
         UserRole role = currentUserService.getCurrentUserRole();
 
-        if(role == UserRole.CUSTOMER){
+        if (role == UserRole.CUSTOMER) {
             Long customerId = currentUserService.getCurrentEntityId();
-            if(!appointment.getCustomer().getCustomerId().equals(customerId)){
-                throw new UnauthorizedAppointmentAccessException("You cannot delete another customer's appointment: " + customerId);
+            if (!appointment.getCustomer().getCustomerId().equals(customerId)) {
+                throw new UnauthorizedAppointmentAccessException(
+                        "You cannot delete another customer's appointment: " + customerId);
             }
         }
         appointment.setStatus(AppointmentStatus.CANCELED);
@@ -219,6 +223,38 @@ public class AppointmentService {
         workingHours.removeAll(bookedSlots);
 
         return List.of(new EmployeeAvailableSlotsDTO(date, workingHours));
+    }
+
+    @RequiresRole(UserRole.CUSTOMER)
+    public List<VehicleResponseDTO> getVehiclesForCurrentCustomer() {
+        Long customerId = currentUserService.getCurrentEntityId();
+
+        Customer customer = customerRepository.findById(customerId)
+                .orElseThrow(() -> new CustomerNotFoundException("Customer not found: " + customerId));
+
+        return customer.getVehicles().stream()
+                .map(v -> new VehicleResponseDTO(
+                        v.getVehicleId(),
+                        v.getVin(),
+                        v.getLicensePlate(),
+                        v.getYear(),
+                        v.getModel(),
+                        v.getMake()
+                ))
+                .toList();
+    }
+
+    public List<AppointmentSearchResponseDTO> searchAppointmentsByCustomerName(String name) {
+        return appointmentRepository.findAppointmentSearchResultsNative(name)
+                .stream()
+                .map(p -> new AppointmentSearchResponseDTO(
+                        p.getAppointmentId(),
+                        p.getDate(),
+                        p.getStatus(),
+                        p.getNotes(),
+                        p.getStartTime(),
+                        p.getEndTime()))
+                .collect(Collectors.toList());
     }
 
 }

@@ -5,6 +5,7 @@ import java.time.LocalDate;
 import java.util.List;
 
 import org.springframework.format.annotation.DateTimeFormat;
+import com.ead.gearup.dto.vehicle.VehicleResponseDTO;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
@@ -178,6 +179,24 @@ public class AppointmentController {
         return ResponseEntity.ok(response);
     }
 
+    @GetMapping("/vehicles")
+    @Operation(summary = "Get vehicles for the logged-in customer to book appointments")
+    public ResponseEntity<ApiResponseDTO<List<VehicleResponseDTO>>> getVehiclesForAppointments(
+            HttpServletRequest request) {
+
+        List<VehicleResponseDTO> vehicles = appointmentService.getVehiclesForCurrentCustomer();
+
+        ApiResponseDTO<List<VehicleResponseDTO>> response = ApiResponseDTO.<List<VehicleResponseDTO>>builder()
+                .status("success")
+                .message("Vehicles retrieved successfully for appointment booking")
+                .data(vehicles)
+                .timestamp(Instant.now())
+                .path(request.getRequestURI())
+                .build();
+
+        return ResponseEntity.ok(response);
+    }
+
     @GetMapping("/filter-by-date")
     public ResponseEntity<ApiResponseDTO<List<AppointmentResponseDTO>>> getAppointmentsByDate(
         @RequestParam("date") @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate date, HttpServletRequest request) {
@@ -265,4 +284,5 @@ public class AppointmentController {
             return ResponseEntity.ok(response);    
 
     }
+
 }

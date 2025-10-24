@@ -54,6 +54,9 @@ public class JwtService {
 
         extraClaims.put("role", roleWithoutPrefix);
         extraClaims.put("token_type", "access");
+        
+        // Add requiresPasswordChange flag if present in extraClaims
+        // This will be set by the authentication service
 
         return Jwts.builder()
                 .claims(extraClaims)

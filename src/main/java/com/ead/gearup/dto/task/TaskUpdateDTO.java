@@ -12,12 +12,11 @@ import lombok.NoArgsConstructor;
 public class TaskUpdateDTO {
     private String name;
     private String description;
-
-    @Positive
     private Integer estimatedHours;
-
-    @Positive
-    public Double cost;
-
-    public TaskStatus status;
+    private Double estimatedCost;
+    private TaskStatus status;
+    private String category;
+    private String priority;
+    private String notes;
 }
+

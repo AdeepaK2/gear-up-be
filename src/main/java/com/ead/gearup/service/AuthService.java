@@ -1,6 +1,8 @@
 package com.ead.gearup.service;
 
 import java.time.LocalDateTime;
+import java.util.HashMap;
+import java.util.Map;
 
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.security.authentication.AuthenticationManager;
@@ -144,7 +146,11 @@ public class AuthService {
         user.setLastLogin(LocalDateTime.now());
         userRepository.save(user);
 
-        String accessToken = jwtService.generateAccessToken(userPrinciple);
+        // Add requiresPasswordChange flag to JWT token
+        Map<String, Object> extraClaims = new HashMap<>();
+        extraClaims.put("requiresPasswordChange", user.getRequiresPasswordChange() != null && user.getRequiresPasswordChange());
+
+        String accessToken = jwtService.generateAccessToken(userPrinciple, extraClaims);
         String refreshToken = jwtService.generateRefreshToken(userPrinciple);
 
         return new JwtTokensDTO(accessToken, refreshToken);
