@@ -13,6 +13,7 @@ import org.springframework.stereotype.Service;
 
 import com.ead.gearup.dto.task.TaskCreateDTO;
 import com.ead.gearup.dto.task.TaskResponseDTO;
+import com.ead.gearup.dto.task.TaskSearchResponseDTO;
 import com.ead.gearup.model.Task;
 import com.ead.gearup.repository.TaskRepository;
 import com.ead.gearup.util.TaskDTOConverter;
@@ -21,6 +22,7 @@ import jakarta.transaction.Transactional;
 import lombok.RequiredArgsConstructor;
 
 import java.util.List;
+import java.util.stream.Collectors;
 
 @Service
 @Transactional
@@ -32,11 +34,12 @@ public class TaskService {
     private final AppointmentRepository appointmentRepository;
     private final CurrentUserService currentUserService;
 
-    @RequiresRole({UserRole.EMPLOYEE, UserRole.ADMIN})
+    @RequiresRole({ UserRole.EMPLOYEE, UserRole.ADMIN })
     public TaskResponseDTO createTask(TaskCreateDTO taskCreateDTO) {
 
         Appointment appointment = appointmentRepository.findById(taskCreateDTO.getAppointmentId())
-                .orElseThrow(()-> new AppointmentNotFoundException("Appointment not found"+taskCreateDTO.getAppointmentId()));
+                .orElseThrow(() -> new AppointmentNotFoundException(
+                        "Appointment not found" + taskCreateDTO.getAppointmentId()));
 
         Task task = taskDTOConverter.convertToEntity(taskCreateDTO);
         task.setAppointment(appointment);
@@ -45,72 +48,72 @@ public class TaskService {
         return taskDTOConverter.convertToResponseDto(task);
     }
 
-    @RequiresRole({UserRole.EMPLOYEE, UserRole.ADMIN, UserRole.CUSTOMER})
+    @RequiresRole({ UserRole.EMPLOYEE, UserRole.ADMIN, UserRole.CUSTOMER })
     public TaskResponseDTO getTaskById(Long taskId) {
         Task task = taskRepository.findById(taskId)
-                .orElseThrow(() -> new TaskNotFoundException("Task not found "+taskId ));
+                .orElseThrow(() -> new TaskNotFoundException("Task not found " + taskId));
 
         UserRole role = currentUserService.getCurrentUserRole();
 
-        if(role == UserRole.CUSTOMER) {
-           Long customerId = currentUserService.getCurrentEntityId();
-           if(task.getProject() == null ||
-           !task.getProject().getCustomer().getCustomerId().equals(customerId)) {
-               throw new TaskNotFoundException("Task not found "+ taskId);
-           }
+        if (role == UserRole.CUSTOMER) {
+            Long customerId = currentUserService.getCurrentEntityId();
+            if (task.getProject() == null ||
+                    !task.getProject().getCustomer().getCustomerId().equals(customerId)) {
+                throw new TaskNotFoundException("Task not found " + taskId);
+            }
         }
 
-//        if(role == UserRole.EMPLOYEE) {
-//            Long employeeId = currentUserService.getCurrentEntityId();
-//            boolean assigned = task.getProject()!=null &&
-//                    task.getProject().getAssignedEmployees().stream()
-//                    .anyMatch(employee -> employee.getEmployeeId().equals(employeeId));
-//            if(!assigned) {
-//                throw new TaskNotFoundException("Task not found "+ taskId);
-//            }
-//        }
+        // if(role == UserRole.EMPLOYEE) {
+        // Long employeeId = currentUserService.getCurrentEntityId();
+        // boolean assigned = task.getProject()!=null &&
+        // task.getProject().getAssignedEmployees().stream()
+        // .anyMatch(employee -> employee.getEmployeeId().equals(employeeId));
+        // if(!assigned) {
+        // throw new TaskNotFoundException("Task not found "+ taskId);
+        // }
+        // }
 
         return taskDTOConverter.convertToResponseDto(task);
     }
 
-    @RequiresRole({UserRole.CUSTOMER, UserRole.ADMIN, UserRole.EMPLOYEE})
+    @RequiresRole({ UserRole.CUSTOMER, UserRole.ADMIN, UserRole.EMPLOYEE })
     public List<TaskResponseDTO> getAllTasks() {
         UserRole role = currentUserService.getCurrentUserRole();
 
-        if(role == UserRole.CUSTOMER) {
+        if (role == UserRole.CUSTOMER) {
             Long customerId = currentUserService.getCurrentEntityId();
 
             return taskRepository.findAll().stream()
-                    .filter(t->t.getProject() != null
-                    && t.getProject().getCustomer().getCustomerId().equals(customerId))
+                    .filter(t -> t.getProject() != null
+                            && t.getProject().getCustomer().getCustomerId().equals(customerId))
                     .map(taskDTOConverter::convertToResponseDto)
                     .toList();
         }
 
-//        if(role == UserRole.EMPLOYEE) {
-//            Long employeeId = currentUserService.getCurrentEntityId();
-//
-//            return taskRepository.findAll().stream()
-//                    .filter(t->t.getProject() != null
-//                    && t.getProject().getAssignedEmployees().stream()
-//                            .anyMatch(e->e.getEmployeeId().equals(employeeId)))
-//                    .map(taskDTOConverter::convertToResponseDto)
-//                    .toList();
-//        }
+        // if(role == UserRole.EMPLOYEE) {
+        // Long employeeId = currentUserService.getCurrentEntityId();
+        //
+        // return taskRepository.findAll().stream()
+        // .filter(t->t.getProject() != null
+        // && t.getProject().getAssignedEmployees().stream()
+        // .anyMatch(e->e.getEmployeeId().equals(employeeId)))
+        // .map(taskDTOConverter::convertToResponseDto)
+        // .toList();
+        // }
 
         return taskRepository.findAll().stream()
                 .map(taskDTOConverter::convertToResponseDto)
                 .toList();
     }
 
-    @RequiresRole({UserRole.CUSTOMER, UserRole.ADMIN, UserRole.EMPLOYEE})
+    @RequiresRole({ UserRole.CUSTOMER, UserRole.ADMIN, UserRole.EMPLOYEE })
     public TaskResponseDTO updateTask(Long taskId, TaskUpdateDTO taskUpdateDTO) {
         Task task = taskRepository.findById(taskId)
                 .orElseThrow(() -> new TaskNotFoundException("Task not found " + taskId));
 
         UserRole role = currentUserService.getCurrentUserRole();
         if (role == UserRole.CUSTOMER) {
-            if(taskUpdateDTO.getStatus() == null){
+            if (taskUpdateDTO.getStatus() == null) {
                 throw new UnauthorizedTaskAccessException("Customers can only update task approval status.");
             }
             task.setStatus(taskUpdateDTO.getStatus());
@@ -129,12 +132,25 @@ public class TaskService {
 
         UserRole role = currentUserService.getCurrentUserRole();
 
-        if(role != UserRole.ADMIN) {
+        if (role != UserRole.ADMIN) {
             throw new UnauthorizedTaskAccessException("Only admins can delete task.");
         }
 
         taskRepository.delete(task);
     }
 
+    public List<TaskSearchResponseDTO> searchTasksByTaskName(String name) {
+        return taskRepository.findTaskSearchResultsNative(name)
+                .stream()
+                .map(task -> new TaskSearchResponseDTO(
+                        task.getTaskId(),
+                        task.getName(),
+                        task.getDescription(),
+                        task.getEstimatedHours(),
+                        task.getCost(),
+                        task.getStatus(),
+                        task.isAssignedProject()))
+                .collect(Collectors.toList());
+    }
 
 }

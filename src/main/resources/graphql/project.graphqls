@@ -1,0 +1,14 @@
+type Project {
+  projectId: ID!
+  name: String
+  description: String
+  startDate: String
+  endDate: String
+  status: String
+  customer: Customer
+  vehicle: Vehicle
+  appointment: Appointment
+  tasks: [Task]
+  createdBy: Employee
+  assignedEmployees: [Employee]
+}

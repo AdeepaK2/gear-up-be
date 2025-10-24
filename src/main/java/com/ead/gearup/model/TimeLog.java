@@ -1,7 +1,5 @@
 package com.ead.gearup.model;
 
-import java.math.BigDecimal;
-import java.math.RoundingMode;
 import java.time.Duration;
 import java.time.LocalDateTime;
 

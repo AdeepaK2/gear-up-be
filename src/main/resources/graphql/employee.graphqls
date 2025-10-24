@@ -1,0 +1,9 @@
+type Employee {
+  employeeId: ID!
+  user: User
+  specialization: String
+  hireDate: String
+  createdAt: String
+  updatedAt: String
+  appointments: [Appointment]
+}
