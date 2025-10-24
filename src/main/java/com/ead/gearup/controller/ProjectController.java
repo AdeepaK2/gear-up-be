@@ -1,11 +1,12 @@
 package com.ead.gearup.controller;
 
-import com.ead.gearup.dto.project.CreateProjectDTO;
-import com.ead.gearup.dto.project.UpdateProjectDTO;
+import com.ead.gearup.dto.project.*;
 import com.ead.gearup.dto.response.ApiResponseDTO;
-import com.ead.gearup.dto.project.ProjectResponseDTO;
+import com.ead.gearup.dto.task.TaskResponseDTO;
+import com.ead.gearup.dto.task.TaskStatusUpdateDTO;
 import com.ead.gearup.service.ProjectService;
 
+import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.security.SecurityRequirement;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.Valid;
@@ -112,4 +113,88 @@ public class ProjectController {
 
         return ResponseEntity.status(HttpStatus.NO_CONTENT).body(response);
     }
+
+    @PatchMapping("/{projectId}/services/{taskId}/status")
+    public ResponseEntity<ApiResponseDTO<TaskResponseDTO>> updateServiceStatus(
+            @PathVariable Long projectId,
+            @PathVariable Long taskId,
+            @Valid @RequestBody TaskStatusUpdateDTO dto,
+            HttpServletRequest request) {
+
+        TaskResponseDTO updatedTask = projectService.updateServiceStatus(projectId, taskId, dto);
+
+        ApiResponseDTO<TaskResponseDTO> response = ApiResponseDTO.<TaskResponseDTO>builder()
+                .status("success")
+                .message("Service status updated successfully")
+                .data(updatedTask)
+                .timestamp(Instant.now())
+                .path(request.getRequestURI())
+                .build();
+
+        return ResponseEntity.ok(response);
+    }
+
+    @PostMapping("/{projectId}/confirm")
+    @Operation(summary = "Confirm selected services for a project")
+    public ResponseEntity<ApiResponseDTO<ProjectResponseDTO>> confirmServices(
+            @PathVariable Long projectId,
+            @Valid @RequestBody ProjectConfirmDTO confirmDTO,
+            HttpServletRequest request
+    ) {
+        ProjectResponseDTO updatedProject = projectService.confirmServices(projectId, confirmDTO);
+
+        ApiResponseDTO<ProjectResponseDTO> response = ApiResponseDTO.<ProjectResponseDTO>builder()
+                .status("success")
+                .message("Project confirmed successfully")
+                .data(updatedProject)
+                .timestamp(Instant.now())
+                .path(request.getRequestURI())
+                .build();
+
+        return ResponseEntity.ok(response);
+    }
+
+    @PostMapping(value = "/{projectId}/additional-request", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
+    @Operation(summary = "Submit an additional service request for a project")
+    public ResponseEntity<ApiResponseDTO<ProjectResponseDTO>> addAdditionalServiceRequest(
+            @PathVariable Long projectId,
+            @ModelAttribute ProjectAdditionalRequestDTO dto,
+            HttpServletRequest request
+    ) {
+        ProjectResponseDTO updatedProject = projectService.addAdditionalServiceRequest(projectId, dto);
+
+        ApiResponseDTO<ProjectResponseDTO> response = ApiResponseDTO.<ProjectResponseDTO>builder()
+                .status("success")
+                .message("Additional service request submitted successfully")
+                .data(updatedProject)
+                .timestamp(Instant.now())
+                .path(request.getRequestURI())
+                .build();
+
+        return ResponseEntity.ok(response);
+    }
+
+    @PatchMapping("/{projectId}/status")
+    @Operation(summary = "Update project status by ID (e.g., CANCELLED)")
+    public ResponseEntity<ApiResponseDTO<ProjectResponseDTO>> updateProjectStatus(
+            @PathVariable Long projectId,
+            @Valid @RequestBody ProjectStatusUpdateDTO dto,
+            HttpServletRequest request
+    ) {
+        ProjectResponseDTO updatedProject = projectService.updateProjectStatus(projectId, dto.getStatus());
+
+        ApiResponseDTO<ProjectResponseDTO> response = ApiResponseDTO.<ProjectResponseDTO>builder()
+                .status("success")
+                .message("Project status updated successfully")
+                .data(updatedProject)
+                .timestamp(Instant.now())
+                .path(request.getRequestURI())
+                .build();
+
+        return ResponseEntity.ok(response);
+    }
+
+
+
+
 }

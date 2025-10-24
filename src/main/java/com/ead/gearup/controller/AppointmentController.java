@@ -3,6 +3,7 @@ package com.ead.gearup.controller;
 import java.time.Instant;
 import java.util.List;
 
+import com.ead.gearup.dto.vehicle.VehicleResponseDTO;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
@@ -138,5 +139,24 @@ public class AppointmentController {
 
         return ResponseEntity.status(HttpStatus.NO_CONTENT).body(response);
     }
+
+    @GetMapping("/vehicles")
+    @Operation(summary = "Get vehicles for the logged-in customer to book appointments")
+    public ResponseEntity<ApiResponseDTO<List<VehicleResponseDTO>>> getVehiclesForAppointments(
+            HttpServletRequest request) {
+
+        List<VehicleResponseDTO> vehicles = appointmentService.getVehiclesForCurrentCustomer();
+
+        ApiResponseDTO<List<VehicleResponseDTO>> response = ApiResponseDTO.<List<VehicleResponseDTO>>builder()
+                .status("success")
+                .message("Vehicles retrieved successfully for appointment booking")
+                .data(vehicles)
+                .timestamp(Instant.now())
+                .path(request.getRequestURI())
+                .build();
+
+        return ResponseEntity.ok(response);
+    }
+
 
 }

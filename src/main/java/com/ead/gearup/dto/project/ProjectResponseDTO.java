@@ -18,5 +18,6 @@ public class ProjectResponseDTO {
     private Long customerId;
     private Long vehicleId;
     private Long appointmentId;
+
     private List<Long> taskIds;
 }

@@ -1,5 +1,6 @@
 package com.ead.gearup.service;
 
+import com.ead.gearup.dto.vehicle.VehicleResponseDTO;
 import com.ead.gearup.enums.AppointmentStatus;
 import com.ead.gearup.enums.UserRole;
 import com.ead.gearup.exception.UnauthorizedAppointmentAccessException;
@@ -130,6 +131,25 @@ public class AppointmentService {
         }
         appointment.setStatus(AppointmentStatus.CANCELED);
         appointmentRepository.save(appointment);
+    }
+
+    @RequiresRole(UserRole.CUSTOMER)
+    public List<VehicleResponseDTO> getVehiclesForCurrentCustomer() {
+        Long customerId = currentUserService.getCurrentEntityId();
+
+        Customer customer = customerRepository.findById(customerId)
+                .orElseThrow(() -> new CustomerNotFoundException("Customer not found: " + customerId));
+
+        return customer.getVehicles().stream()
+                .map(v -> new VehicleResponseDTO(
+                        v.getVehicleId(),
+                        v.getVin(),
+                        v.getLicensePlate(),
+                        v.getYear(),
+                        v.getModel(),
+                        v.getMake()
+                ))
+                .toList();
     }
 
     public List<AppointmentSearchResponseDTO> searchAppointmentsByCustomerName(String name) {
