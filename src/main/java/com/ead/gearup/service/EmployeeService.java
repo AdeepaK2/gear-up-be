@@ -19,6 +19,7 @@ import com.ead.gearup.repository.EmployeeRepository;
 import com.ead.gearup.repository.UserRepository;
 import com.ead.gearup.service.auth.CurrentUserService;
 import com.ead.gearup.util.EmployeeDTOConverter;
+import com.ead.gearup.validation.RequiresRole;
 
 import lombok.RequiredArgsConstructor;
 
@@ -83,6 +84,7 @@ public class EmployeeService {
         return converter.convertToResponseDto(employee);
     }
 
+    @Transactional
     public EmployeeResponseDTO updateEmployee(Long id, UpdateEmployeeDTO updateEmployeeDTO) {
         if (id == null || id <= 0) {
             throw new IllegalArgumentException("Invalid employee ID");
@@ -116,6 +118,12 @@ public class EmployeeService {
 
         // Delete the employee safely
         employeeRepository.delete(employee);
+    }
+
+    @RequiresRole({UserRole.EMPLOYEE})
+    public EmployeeResponseDTO getCurrentEmployee(){
+        Long employeeId = currentUserService.getCurrentEntityId();
+        return getEmployeeById(employeeId);
     }
 
     public List<EmployeeSearchResponseDTO> searchEmployeesByEmployeeName(String name) {

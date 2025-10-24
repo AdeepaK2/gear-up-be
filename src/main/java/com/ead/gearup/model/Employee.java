@@ -37,6 +37,12 @@ public class Employee {
     @Column(name = "hire_date")
     private LocalDate hireDate;
 
+    @Column
+    private String profileImage;
+
+    @Column
+    private String phoneNumber;
+
     @CreationTimestamp
     @Column(name = "created_at", updatable = false)
     private LocalDateTime createdAt;
@@ -48,4 +54,9 @@ public class Employee {
     @OneToMany(mappedBy = "employee", fetch = FetchType.LAZY, cascade = CascadeType.ALL, orphanRemoval = true)
     @Builder.Default
     private List<Appointment> appointments = new ArrayList<>();
+
+    @OneToMany(mappedBy = "employee", fetch = FetchType.LAZY, cascade = CascadeType.ALL, orphanRemoval = true)
+    @Builder.Default
+     private List<Task> tasks = new ArrayList<>();
+
 }

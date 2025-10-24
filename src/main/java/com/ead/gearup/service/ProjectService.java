@@ -1,5 +1,10 @@
 package com.ead.gearup.service;
 
+import com.ead.gearup.dto.project.CreateProjectDTO;
+import com.ead.gearup.dto.project.UpdateProjectDTO;
+import com.ead.gearup.dto.project.ProjectResponseDTO;
+import com.ead.gearup.dto.employee.EmployeeProjectDetailResponseDTO;
+import com.ead.gearup.dto.employee.EmployeeProjectResponseDTO;
 import com.ead.gearup.dto.project.*;
 import com.ead.gearup.dto.task.TaskResponseDTO;
 import com.ead.gearup.dto.task.TaskStatusUpdateDTO;
@@ -13,18 +18,22 @@ import com.ead.gearup.service.auth.CurrentUserService;
 import com.ead.gearup.util.AppointmentDTOConverter;
 import com.ead.gearup.util.TaskDTOConverter;
 import com.ead.gearup.validation.RequiresRole;
+
 import com.ead.gearup.util.ProjectDTOConverter;
 import jakarta.transaction.Transactional;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.web.bind.annotation.PostMapping;
 
+import java.time.LocalDate;
+import java.util.HashMap;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.time.LocalDate;
 import java.util.List;
+import java.util.Map;
 
 @Service
 @RequiredArgsConstructor
@@ -137,6 +146,58 @@ public class ProjectService {
         projectRepository.delete(project);
     }
 
+    @RequiresRole({UserRole.EMPLOYEE, UserRole.ADMIN})
+    public Map<String, Long> getProjectCountByStatus(Long employeeId) {
+        List<Object[]> results = projectRepository.countProjectsByStatusForEmployee(employeeId);
+        Map<String, Long> response = new HashMap<>();
+    
+        for (Object[] row : results) {
+            String status = row[0].toString();
+            Long count = (Long) row[1];
+            response.put(status, count);
+        }
+    
+        return response;
+    }
+
+    @RequiresRole({UserRole.EMPLOYEE, UserRole.ADMIN})
+    public List<EmployeeProjectResponseDTO> getAssignedProjectsForCurrentEmployee() {
+        Long employeeId = currentUserService.getCurrentUserId();
+        List<Project> projects = projectRepository.findByAssignedEmployeesEmployeeId(employeeId);
+
+        return projects.stream()
+                .map(p -> new EmployeeProjectResponseDTO(
+                        p.getProjectId(),
+                        p.getName()
+                ))
+                .toList();
+    }
+
+    @RequiresRole({UserRole.EMPLOYEE, UserRole.ADMIN})
+    public EmployeeProjectDetailResponseDTO getAssignedProjectDetail(Long projectId) {
+        Long employeeId = currentUserService.getCurrentUserId();
+
+        Project project = projectRepository.findByProjectIdAndAssignedEmployeesEmployeeId(projectId, employeeId)
+                .orElseThrow(() -> new ResourceNotFoundException("Project not found or not assigned to you: " + projectId));
+
+        LocalDate startDate = project.getStartDate();
+        LocalDate endDate = project.getEndDate();
+        Long completionDays = null;
+
+        if(startDate != null && endDate != null) {
+            completionDays = java.time.temporal.ChronoUnit.DAYS.between(startDate, endDate);
+        }
+                
+
+        return new EmployeeProjectDetailResponseDTO(
+                project.getCustomer().getUser().getName(),
+                project.getVehicle().getModel(),
+                project.getEndDate(),
+                project.getStartDate(),
+                project.getStatus(),
+                completionDays
+        );
+    }
     @Transactional
     public TaskResponseDTO updateServiceStatus(Long projectId, Long taskId, TaskStatusUpdateDTO dto) {
         Project project = projectRepository.findById(projectId)

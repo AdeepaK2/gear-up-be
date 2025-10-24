@@ -58,6 +58,10 @@ public class ProjectDTOConverter {
         }
         if(project.getCustomer() != null){
             dto.setCustomerId(project.getCustomer().getCustomerId());
+
+            if (project.getCustomer().getUser() != null) {
+                dto.setCustomerName(project.getCustomer().getUser().getName());
+            }
         }
         if (project.getTasks() != null) {
             dto.setTaskIds(project.getTasks().stream()

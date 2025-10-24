@@ -1,16 +1,25 @@
 package com.ead.gearup.controller;
 
+import com.ead.gearup.dto.employee.EmployeeProjectResponseDTO;
+import com.ead.gearup.dto.project.CreateProjectDTO;
+import com.ead.gearup.dto.project.UpdateProjectDTO;
+import com.ead.gearup.dto.response.ApiResponseDTO;
+import com.ead.gearup.dto.project.ProjectResponseDTO;
+import com.ead.gearup.dto.employee.EmployeeProjectDetailResponseDTO;
 import com.ead.gearup.dto.project.*;
 import com.ead.gearup.dto.response.ApiResponseDTO;
 import com.ead.gearup.dto.task.TaskResponseDTO;
 import com.ead.gearup.dto.task.TaskStatusUpdateDTO;
 import com.ead.gearup.service.ProjectService;
+import com.ead.gearup.service.auth.CurrentUserService;
 
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.security.SecurityRequirement;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
+
+import java.util.Map;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
@@ -26,6 +35,7 @@ import java.util.List;
 public class ProjectController {
 
     private final ProjectService projectService;
+    private final CurrentUserService currentUserService;
 
     @PostMapping(consumes = MediaType.APPLICATION_JSON_VALUE, produces = MediaType.APPLICATION_JSON_VALUE)
     public ResponseEntity<ApiResponseDTO<ProjectResponseDTO>> createProject(
@@ -114,6 +124,33 @@ public class ProjectController {
         return ResponseEntity.status(HttpStatus.NO_CONTENT).body(response);
     }
 
+    @GetMapping("/status-count")
+    public ResponseEntity<?> getProjectCountByStatus() {
+        Long employeeId = currentUserService.getCurrentEntityId();
+        Map<String, Long> result = projectService.getProjectCountByStatus(employeeId);
+        return ResponseEntity.ok(Map.of(
+                "status", "success",
+                "message", "Project status count retrieved successfully",
+                "data", result
+        ));
+    }
+
+    // Employee's assigned projects
+    @GetMapping("/my-assigned")
+    public ResponseEntity<ApiResponseDTO<List<EmployeeProjectResponseDTO>>> getMyAssignedProjects(HttpServletRequest request) {
+        List<EmployeeProjectResponseDTO> projects = projectService.getAssignedProjectsForCurrentEmployee();
+
+        ApiResponseDTO<List<EmployeeProjectResponseDTO>> response = ApiResponseDTO.<List<EmployeeProjectResponseDTO>>builder()
+                .status("success")
+                .message("Assigned projects retrieved successfully")
+                .data(projects)
+                .timestamp(Instant.now())
+                .path(request.getRequestURI())
+                .build();
+
+        return ResponseEntity.ok(response);
+    }
+
     @PatchMapping("/{projectId}/services/{taskId}/status")
     public ResponseEntity<ApiResponseDTO<TaskResponseDTO>> updateServiceStatus(
             @PathVariable Long projectId,
@@ -174,6 +211,23 @@ public class ProjectController {
         return ResponseEntity.ok(response);
     }
 
+    @GetMapping("/my-assigned/{projectId}")
+    public ResponseEntity<ApiResponseDTO<EmployeeProjectDetailResponseDTO>> getMyAssignedProjectDetail(
+            @PathVariable Long projectId,
+            HttpServletRequest request
+    ) {
+        EmployeeProjectDetailResponseDTO projectDetail = projectService.getAssignedProjectDetail(projectId);
+
+        ApiResponseDTO<EmployeeProjectDetailResponseDTO> response = ApiResponseDTO.<EmployeeProjectDetailResponseDTO>builder()
+                .status("success")
+                .message("Assigned project detail retrieved successfully")
+                .data(projectDetail)
+                .timestamp(Instant.now())
+                .path(request.getRequestURI())
+                .build();
+
+        return ResponseEntity.ok(response);
+
     @PatchMapping("/{projectId}/status")
     @Operation(summary = "Update project status by ID (e.g., CANCELLED)")
     public ResponseEntity<ApiResponseDTO<ProjectResponseDTO>> updateProjectStatus(
@@ -193,8 +247,5 @@ public class ProjectController {
 
         return ResponseEntity.ok(response);
     }
-
-
-
 
 }
