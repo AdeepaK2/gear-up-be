@@ -174,6 +174,49 @@ async def update_embeddings():
         raise HTTPException(status_code=500, detail=str(e))
 
 
+@app.get("/chat/history/{session_id}")
+async def get_chat_history(session_id: str, limit: int = 10):
+    """
+    Get chat history for a session
+    
+    Args:
+        session_id: The session ID to retrieve history for
+        limit: Maximum number of messages to return (default: 10)
+    
+    Returns:
+        List of chat messages with questions and answers
+    """
+    try:
+        logger.info(f"Retrieving chat history for session: {session_id}")
+        history = await rag_service.get_chat_history(session_id, limit)
+        return history
+    
+    except Exception as e:
+        logger.error(f"Error getting chat history: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.delete("/chat/history/{session_id}")
+async def clear_chat_history(session_id: str):
+    """
+    Clear chat history for a session
+    
+    Args:
+        session_id: The session ID to clear history for
+    
+    Returns:
+        Success message
+    """
+    try:
+        logger.info(f"Clearing chat history for session: {session_id}")
+        await rag_service.clear_chat_history(session_id)
+        return {"status": "success", "message": f"Chat history cleared for session {session_id}"}
+    
+    except Exception as e:
+        logger.error(f"Error clearing chat history: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail=str(e))
+
+
 @app.get("/stats")
 async def get_stats():
     """Get chatbot statistics"""

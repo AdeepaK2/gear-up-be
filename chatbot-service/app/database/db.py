@@ -21,7 +21,16 @@ def get_engine():
     """Get or create the database engine"""
     global _engine
     if _engine is None:
-        _engine = create_async_engine(DATABASE_URL, echo=False, future=True)
+        # asyncpg requires ssl=True instead of sslmode parameter
+        connect_args = {
+            "ssl": "require"  # Enable SSL for Neon/cloud databases
+        }
+        _engine = create_async_engine(
+            DATABASE_URL, 
+            echo=False, 
+            future=True,
+            connect_args=connect_args
+        )
     return _engine
 
 async_session = None
@@ -50,7 +59,8 @@ async def fetch_appointment_data() -> List[Dict[str, Any]]:
         List of documents with text and metadata
     """
     try:
-        async with async_session() as session:
+        session_maker = get_async_session()
+        async with session_maker() as session:
             # Query to fetch appointments with related data
             query = text("""
                 SELECT 
@@ -60,16 +70,18 @@ async def fetch_appointment_data() -> List[Dict[str, Any]]:
                     a.end_time,
                     a.status,
                     a.notes,
-                    c.name as customer_name,
-                    c.email as customer_email,
+                    u.name as customer_name,
+                    u.email as customer_email,
                     v.make,
                     v.model,
                     v.year,
-                    e.name as mechanic_name
+                    e_user.name as mechanic_name
                 FROM appointment a
-                LEFT JOIN customer c ON a.customer_id = c.customer_id
+                LEFT JOIN customers c ON a.customer_id = c.customer_id
+                LEFT JOIN users u ON c.user_id = u.user_id
                 LEFT JOIN vehicle v ON a.vehicle_id = v.vehicle_id
-                LEFT JOIN employee e ON a.mechanic_id = e.employee_id
+                LEFT JOIN employees e ON a.mechanic_id = e.employee_id
+                LEFT JOIN users e_user ON e.user_id = e_user.user_id
                 WHERE a.status IN ('PENDING', 'CONFIRMED', 'IN_PROGRESS')
                 ORDER BY a.date ASC, a.start_time ASC
             """)
@@ -80,7 +92,7 @@ async def fetch_appointment_data() -> List[Dict[str, Any]]:
             documents = []
             for apt in appointments:
                 # Convert appointment to natural language text
-                text = f"""
+                apt_text = f"""
 Appointment ID: {apt.appointment_id}
 Date: {apt.date}
 Time: {apt.start_time} - {apt.end_time}
@@ -93,7 +105,7 @@ Notes: {apt.notes or 'None'}
                 
                 documents.append({
                     "id": f"appointment_{apt.appointment_id}",
-                    "text": text.strip(),
+                    "text": apt_text.strip(),
                     "metadata": {
                         "appointment_id": apt.appointment_id,
                         "date": str(apt.date),
@@ -101,7 +113,7 @@ Notes: {apt.notes or 'None'}
                         "customer_name": apt.customer_name,
                         "vehicle": f"{apt.year} {apt.make} {apt.model}",
                         "source": f"Appointment #{apt.appointment_id}",
-                        "text": text.strip()
+                        "text": apt_text.strip()
                     }
                 })
             
@@ -123,7 +135,8 @@ async def fetch_available_slots(date: str = None) -> List[Dict[str, Any]]:
         List of available slots
     """
     try:
-        async with async_session() as session:
+        session_maker = get_async_session()
+        async with session_maker() as session:
             # Define working hours (9 AM - 6 PM)
             # Query existing appointments to find gaps
             

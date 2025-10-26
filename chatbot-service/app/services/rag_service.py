@@ -21,6 +21,8 @@ class RAGService:
         self.gemini_service = gemini_service
         self.vector_db_service = vector_db_service
         self.max_context_docs = int(os.getenv("MAX_CONTEXT_DOCS", "5"))
+        # In-memory chat history storage (in production, use Redis or database)
+        self.chat_history: Dict[str, List[Dict[str, Any]]] = {}
     
     async def process_query(
         self,
@@ -72,6 +74,9 @@ class RAGService:
             
             # Calculate confidence based on relevance scores
             confidence = self._calculate_confidence(relevant_docs)
+            
+            # Store in chat history
+            self._save_to_history(session_id, question, answer)
             
             return ChatResponse(
                 answer=answer,
@@ -164,7 +169,47 @@ class RAGService:
             "vector_db_available": self.vector_db_service.is_available(),
         }
     
+    async def get_chat_history(self, session_id: str, limit: int = 10) -> List[Dict[str, Any]]:
+        """
+        Get chat history for a session
+        
+        Args:
+            session_id: Session identifier
+            limit: Maximum number of messages to return
+        
+        Returns:
+            List of chat messages
+        """
+        history = self.chat_history.get(session_id, [])
+        return history[-limit:] if history else []
+    
+    async def clear_chat_history(self, session_id: str) -> None:
+        """
+        Clear chat history for a session
+        
+        Args:
+            session_id: Session identifier
+        """
+        if session_id in self.chat_history:
+            del self.chat_history[session_id]
+            logger.info(f"Cleared chat history for session: {session_id}")
+    
     # Private helper methods
+    
+    def _save_to_history(self, session_id: str, question: str, answer: str) -> None:
+        """Save question and answer to chat history"""
+        if session_id not in self.chat_history:
+            self.chat_history[session_id] = []
+        
+        self.chat_history[session_id].append({
+            "question": question,
+            "answer": answer,
+            "timestamp": datetime.utcnow().isoformat()
+        })
+        
+        # Keep only last 50 messages per session to prevent memory issues
+        if len(self.chat_history[session_id]) > 50:
+            self.chat_history[session_id] = self.chat_history[session_id][-50:]
     
     def _build_context(self, documents: List[Dict[str, Any]]) -> str:
         """Build context string from retrieved documents"""
