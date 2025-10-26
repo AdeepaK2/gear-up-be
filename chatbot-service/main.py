@@ -21,6 +21,7 @@ from app.services.gemini_service import GeminiService
 from app.services.vector_db_service import VectorDBService
 from app.services.rag_service import RAGService
 from app.database.db import get_db_connection
+from app.database.chat_history_db import init_chat_history_table
 from app.models.schemas import ChatRequest, ChatResponse, ChatStreamChunk
 
 # Configure logging
@@ -42,6 +43,9 @@ async def lifespan(app: FastAPI):
     global gemini_service, vector_db_service, rag_service
     
     logger.info("Initializing Chatbot Service...")
+    
+    # Initialize chat history table
+    await init_chat_history_table()
     
     # Initialize services
     gemini_service = GeminiService()
