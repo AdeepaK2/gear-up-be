@@ -16,7 +16,9 @@ public class ProjectResponseDTO {
     private LocalDate endDate;
 //    private Double totalCost;
     private Long customerId;
+    private String customerName;
     private Long vehicleId;
     private Long appointmentId;
+
     private List<Long> taskIds;
 }

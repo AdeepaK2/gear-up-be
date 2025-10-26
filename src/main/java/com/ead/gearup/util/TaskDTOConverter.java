@@ -21,7 +21,7 @@ public class TaskDTOConverter {
         task.setName(dto.getName());
         task.setDescription(dto.getDescription());
         task.setEstimatedHours(dto.getEstimatedHours());
-        task.setCost(dto.getCost());
+        task.setEstimatedCost(dto.getEstimatedCost());
         task.setAppointment(appointmentRepository.findById(dto.getAppointmentId())
                 .orElseThrow(() -> {
                     throw new IllegalArgumentException("Invalid appointment ID: " + dto.getAppointmentId());
@@ -38,10 +38,15 @@ public class TaskDTOConverter {
         dto.setName(task.getName());
         dto.setDescription(task.getDescription());
         dto.setEstimatedHours(task.getEstimatedHours());
-        dto.setCost(task.getCost());
-        dto.setAppointmentId(task.getAppointment().getAppointmentId());
-        dto.setStatus(task.getStatus().name());
-        dto.setAssignedProject(task.isAssignedProject());
+        dto.setEstimatedCost(task.getEstimatedCost());
+        dto.setAppointmentId(task.getAppointment() != null ? task.getAppointment().getAppointmentId() : null);
+        dto.setStatus(task.getStatus());
+        dto.setCategory(task.getCategory());
+        dto.setPriority(task.getPriority());
+        dto.setNotes(task.getNotes());
+        dto.setRequestedBy(task.getRequestedBy());
+        dto.setCreatedAt(task.getCreatedAt());
+
 
         return dto;
     }
@@ -57,8 +62,8 @@ public class TaskDTOConverter {
         if (dto.getEstimatedHours() != null) {
             task.setEstimatedHours(dto.getEstimatedHours());
         }
-        if (dto.getCost() != null) {
-            task.setCost(dto.getCost());
+        if (dto.getEstimatedCost() != null) {
+            task.setEstimatedCost(dto.getEstimatedCost());
         }
         if (dto.getStatus() != null) {
             task.setStatus(dto.getStatus());

@@ -1,26 +1,14 @@
 package com.ead.gearup.model;
 
 import com.ead.gearup.enums.ProjectStatus;
-
-import jakarta.persistence.Entity;
-import jakarta.persistence.Id;
-import jakarta.persistence.ManyToOne;
-import jakarta.persistence.OneToOne;
-import jakarta.persistence.ManyToMany;
-import jakarta.persistence.JoinTable;
-import jakarta.persistence.Table;
-import jakarta.persistence.JoinColumn;
-import jakarta.persistence.GeneratedValue;
-import jakarta.persistence.GenerationType;
-import jakarta.persistence.EnumType;
-import jakarta.persistence.Enumerated;
-import jakarta.persistence.FetchType;
-
-
-
+import jakarta.persistence.*;
 import lombok.*;
+import org.hibernate.annotations.CreationTimestamp;
+import org.hibernate.annotations.UpdateTimestamp;
 
 import java.time.LocalDate;
+import java.time.LocalDateTime;
+import java.util.ArrayList;
 import java.util.List;
 
 @Entity
@@ -43,6 +31,11 @@ public class Project {
 
     private LocalDate endDate;
 
+    private String additionalRequest;
+
+    private String referenceFilePath;
+
+
     @Enumerated(EnumType.STRING)
     private ProjectStatus status;
 
@@ -64,19 +57,44 @@ public class Project {
             joinColumns = @JoinColumn(name = "project_id"),
             inverseJoinColumns = @JoinColumn(name = "task_id")
     )
-    private List<Task> tasks;
+    @Builder.Default
+    private List<Task> tasks = new ArrayList<>();
 
-    // who created the project
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "created_by")
     private Employee createdBy;
 
-    // employees assigned to work on this project
     @ManyToMany
     @JoinTable(
             name = "project_assigned_employees",
             joinColumns = @JoinColumn(name = "project_id"),
             inverseJoinColumns = @JoinColumn(name = "employee_id")
     )
-    private List<Employee> assignedEmployees;
+    @Builder.Default
+    private List<Employee> assignedEmployees = new ArrayList<>();
+
+    // 🆕 Additional fields
+    @ElementCollection
+    @CollectionTable(
+            name = "project_additional_requests",
+            joinColumns = @JoinColumn(name = "project_id")
+    )
+    @Column(name = "request_text")
+    @Builder.Default
+    private List<String> additionalRequests = new ArrayList<>();
+
+    @Builder.Default
+    private Double totalEstimatedCost = 0.0;
+
+    @Builder.Default
+    private Double totalAcceptedCost = 0.0;
+
+    @Builder.Default
+    private Integer acceptedServicesCount = 0;
+
+    @CreationTimestamp
+    private LocalDateTime createdAt;
+
+    @UpdateTimestamp
+    private LocalDateTime updatedAt;
 }

@@ -1,7 +1,6 @@
 package com.ead.gearup.dto.task;
 
 import com.ead.gearup.enums.TaskStatus;
-import jakarta.validation.constraints.Positive;
 import lombok.AllArgsConstructor;
 import lombok.Data;
 import lombok.NoArgsConstructor;
@@ -12,12 +11,11 @@ import lombok.NoArgsConstructor;
 public class TaskUpdateDTO {
     private String name;
     private String description;
-
-    @Positive
     private Integer estimatedHours;
-
-    @Positive
-    public Double cost;
-
-    public TaskStatus status;
+    private Double estimatedCost;
+    private TaskStatus status;
+    private String category;
+    private String priority;
+    private String notes;
 }
+

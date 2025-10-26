@@ -10,6 +10,7 @@ import com.ead.gearup.dto.employee.EmployeeResponseDTO;
 import com.ead.gearup.dto.employee.UpdateEmployeeDTO;
 import com.ead.gearup.dto.response.ApiResponseDTO;
 import com.ead.gearup.service.EmployeeService;
+import com.ead.gearup.service.TaskService;
 
 import io.swagger.v3.oas.annotations.security.SecurityRequirement;
 import jakarta.servlet.http.HttpServletRequest;
@@ -17,6 +18,7 @@ import jakarta.validation.Valid;
 
 import java.time.Instant;
 import java.util.List;
+import java.util.Map;
 
 @RestController
 @RequestMapping("/api/v1/employees")
@@ -25,6 +27,9 @@ public class EmployeeController {
 
     @Autowired
     private EmployeeService employeeService;
+
+    @Autowired
+    private TaskService taskService;
 
     // @RequiresRole({UserRole.ADMIN, UserRole.EMPLOYEE, UserRole.PUBLIC})
     @PostMapping
@@ -117,4 +122,36 @@ public class EmployeeController {
 
         return ResponseEntity.ok(response);
     }
+
+    // Dashboard
+    @GetMapping("/task-summary")
+    public ResponseEntity<ApiResponseDTO<Map<String, Long>>> getTaskSummaryForEmployee(HttpServletRequest request) {
+        Map<String, Long> taskSummary = taskService.getTaskSummaryForEmployee();
+
+        ApiResponseDTO<Map<String, Long>> response = ApiResponseDTO.<Map<String, Long>>builder()
+                .status("success")
+                .message("Task summary retrieved successfully")
+                .timestamp(Instant.now())
+                .path(request.getRequestURI())
+                .data(taskSummary)
+                .build();
+
+        return ResponseEntity.ok(response);
+    }
+
+    @GetMapping("/me")
+    public ResponseEntity<ApiResponseDTO<EmployeeResponseDTO>> getCurrentEmployee(HttpServletRequest request) {
+        EmployeeResponseDTO currentEmployee = employeeService.getCurrentEmployee();
+
+        ApiResponseDTO<EmployeeResponseDTO> response = ApiResponseDTO.<EmployeeResponseDTO>builder()
+                .status("success")
+                .message("Current employee retrieved successfully")
+                .timestamp(Instant.now())
+                .path(request.getRequestURI())
+                .data(currentEmployee)
+                .build();
+
+        return ResponseEntity.ok(response);
+    }
+
 }

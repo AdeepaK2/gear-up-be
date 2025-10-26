@@ -4,12 +4,14 @@ import java.time.Instant;
 import java.util.List;
 
 import com.ead.gearup.dto.task.TaskUpdateDTO;
+
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
 import com.ead.gearup.dto.response.ApiResponseDTO;
+import com.ead.gearup.dto.task.EmployeeRecentActivityDTO;
 import com.ead.gearup.dto.task.TaskCreateDTO;
 import com.ead.gearup.dto.task.TaskResponseDTO;
 import com.ead.gearup.service.TaskService;
@@ -108,6 +110,23 @@ public class TaskController {
                 .build();
 
         return ResponseEntity.status(HttpStatus.NO_CONTENT).body(response);
+   }
+
+   @GetMapping("/employee/recent-activities")
+   public ResponseEntity<ApiResponseDTO<List<EmployeeRecentActivityDTO>>> getRecentActivitiesForCurrentEmployee(
+           HttpServletRequest request) {
+
+        List<EmployeeRecentActivityDTO> recentActivities = taskService.getRecentActivitiesForCurrentEmployee();
+
+        ApiResponseDTO<List<EmployeeRecentActivityDTO>> response = ApiResponseDTO.<List<EmployeeRecentActivityDTO>>builder()
+                .status("success")
+                .message("Recent activities fetched successfully")
+                .data(recentActivities)
+                .timestamp(Instant.now())
+                .path(request.getRequestURI())
+                .build();
+
+        return ResponseEntity.status(HttpStatus.OK).body(response);
    }
 
 
