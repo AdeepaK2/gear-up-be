@@ -1,0 +1,10 @@
+type User {
+  userId: ID!
+  name: String
+  email: String
+  role: String
+  isVerified: Boolean
+  createdAt: String
+  lastLogin: String
+  lastVerificationEmailSent: String
+}

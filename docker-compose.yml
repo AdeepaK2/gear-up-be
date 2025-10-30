@@ -16,13 +16,19 @@ services:
     build: .
     ports:
       - "8080:8080"
+    env_file:
+      - .env
     environment:
       - SPRING_PROFILES_ACTIVE=docker
+      # Override database URL for local development
       - SPRING_DATASOURCE_URL=jdbc:postgresql://database:5432/gearup
       - SPRING_DATASOURCE_USERNAME=gearup
       - SPRING_DATASOURCE_PASSWORD=gearup123
+      # These will be overridden by .env file if present
       - JWT_SECRET=${JWT_SECRET:-defaultjwtsecret}
       - CORS_ALLOWED_ORIGINS=${CORS_ALLOWED_ORIGINS:-http://localhost:3000}
+      - MAIL_USERNAME=${MAIL_USERNAME}
+      - MAIL_PASSWORD=${MAIL_PASSWORD}
     networks:
       - backend-network
     depends_on:

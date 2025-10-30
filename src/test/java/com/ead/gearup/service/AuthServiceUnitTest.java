@@ -1,5 +1,9 @@
 package com.ead.gearup.service;
 
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyMap;
+import static org.mockito.ArgumentMatchers.anyString;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.*;
 import static org.junit.jupiter.api.Assertions.*;
 
@@ -183,8 +187,8 @@ class AuthServiceUnitTest {
         when(auth.getPrincipal()).thenReturn(principle);
 
         when(authManager.authenticate(any(UsernamePasswordAuthenticationToken.class))).thenReturn(auth);
-        when(jwtService.generateAccessToken(principle)).thenReturn("accessToken");
-        when(jwtService.generateRefreshToken(principle)).thenReturn("refreshToken");
+        when(jwtService.generateAccessToken(eq(principle), anyMap())).thenReturn("accessToken");
+        when(jwtService.generateRefreshToken(eq(principle))).thenReturn("refreshToken");
         when(userRepository.save(user)).thenReturn(user);
 
         JwtTokensDTO tokens = authService.verifyUser(dto);

@@ -14,6 +14,7 @@ public interface CustomerMapper {
     @Mapping(target = "user", ignore = true) // User will be set manually in the service
     @Mapping(target = "vehicles", ignore = true)
     @Mapping(target = "appointments", ignore = true)
+    @Mapping(target = "profileImage", ignore = true)
     Customer toEntity(CustomerRequestDTO dto);
 
     // Convert Customer -> ResponseDTO

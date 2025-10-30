@@ -18,4 +18,6 @@ public class EmployeeResponseDTO {
     private LocalDate hireDate;
     private LocalDateTime createdAt;
     private LocalDateTime updatedAt;
+    private String profileImage;
+    private String phoneNumber;
 }

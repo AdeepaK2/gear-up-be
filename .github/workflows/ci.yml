@@ -2,9 +2,9 @@ name: Java CI Pipeline
 
 on:
   push:
-    branches: [main, dev]
+    branches: [prod, dev]
   pull_request:
-    branches: [main, dev]
+    branches: [prod, dev]
 
 jobs:
   build:
