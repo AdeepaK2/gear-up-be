@@ -1,0 +1,13 @@
+type Task {
+  taskId: ID!
+  name: String
+  description: String
+  estimatedHours: Int
+  cost: Float
+  status: String
+  createdAt: String
+  completedAt: String
+  isAssignedProject: Boolean
+  project: Project
+  appointment: Appointment
+}

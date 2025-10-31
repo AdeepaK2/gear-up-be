@@ -3,7 +3,11 @@ package com.ead.gearup.controller;
 import com.ead.gearup.dto.CreateEmployeeRequest;
 import com.ead.gearup.dto.CreateEmployeeResponse;
 import com.ead.gearup.dto.EmployeeDTO;
+import com.ead.gearup.dto.response.ApiResponseDTO;
+import com.ead.gearup.enums.UserRole;
 import com.ead.gearup.service.EmployeeManagementService;
+import com.ead.gearup.validation.RequiresRole;
+
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.security.SecurityRequirement;
 import io.swagger.v3.oas.annotations.tags.Tag;
@@ -11,9 +15,10 @@ import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
-import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 
+import jakarta.servlet.http.HttpServletRequest;
+import java.time.Instant;
 import java.util.List;
 
 @RestController
@@ -26,78 +31,99 @@ public class EmployeeManagementController {
     private final EmployeeManagementService employeeManagementService;
 
     @PostMapping
-    @PreAuthorize("hasRole('ADMIN')")
-    @Operation(summary = "Create new employee account", 
-               description = "Creates a new employee account with auto-generated temporary password sent via email")
-    public ResponseEntity<ApiResponse<CreateEmployeeResponse>> createEmployee(
-            @Valid @RequestBody CreateEmployeeRequest request) {
-        
+    @RequiresRole({ UserRole.ADMIN })
+    @Operation(summary = "Create new employee account", description = "Creates a new employee account with auto-generated temporary password sent via email")
+    public ResponseEntity<ApiResponseDTO<CreateEmployeeResponse>> createEmployee(
+            @Valid @RequestBody CreateEmployeeRequest request,
+            HttpServletRequest httpRequest) {
+
         CreateEmployeeResponse response = employeeManagementService.createEmployee(request);
-        
-        return ResponseEntity.status(HttpStatus.CREATED).body(
-            ApiResponse.success(
-                response, 
-                "Employee account created successfully. Temporary password sent to " + request.getEmail()
-            )
-        );
+
+        ApiResponseDTO<CreateEmployeeResponse> apiResponse = ApiResponseDTO.<CreateEmployeeResponse>builder()
+                .status("success")
+                .message("Employee account created successfully. Temporary password sent to " + request.getEmail())
+                .data(response)
+                .timestamp(Instant.now())
+                .path(httpRequest.getRequestURI())
+                .build();
+
+        return ResponseEntity.status(HttpStatus.CREATED).body(apiResponse);
     }
 
     @GetMapping
-    @PreAuthorize("hasRole('ADMIN')")
+    @RequiresRole({ UserRole.ADMIN })
     @Operation(summary = "Get all employees", description = "Retrieves list of all employee accounts")
-    public ResponseEntity<ApiResponse<List<EmployeeDTO>>> getAllEmployees() {
+    public ResponseEntity<ApiResponseDTO<List<EmployeeDTO>>> getAllEmployees(HttpServletRequest httpRequest) {
         List<EmployeeDTO> employees = employeeManagementService.getAllEmployees();
-        return ResponseEntity.ok(ApiResponse.success(employees, "Employees retrieved successfully"));
+
+        ApiResponseDTO<List<EmployeeDTO>> apiResponse = ApiResponseDTO.<List<EmployeeDTO>>builder()
+                .status("success")
+                .message("Employees retrieved successfully")
+                .data(employees)
+                .timestamp(Instant.now())
+                .path(httpRequest.getRequestURI())
+                .build();
+
+        return ResponseEntity.ok(apiResponse);
     }
 
     @PutMapping("/{employeeId}/deactivate")
-    @PreAuthorize("hasRole('ADMIN')")
+    @RequiresRole({ UserRole.ADMIN })
     @Operation(summary = "Deactivate employee account", description = "Deactivates an employee account")
-    public ResponseEntity<ApiResponse<Void>> deactivateEmployee(@PathVariable Long employeeId) {
+    public ResponseEntity<ApiResponseDTO<Void>> deactivateEmployee(
+            @PathVariable Long employeeId,
+            HttpServletRequest httpRequest) {
+
         employeeManagementService.deactivateEmployee(employeeId);
-        return ResponseEntity.ok(ApiResponse.success(null, "Employee account deactivated successfully"));
+
+        ApiResponseDTO<Void> apiResponse = ApiResponseDTO.<Void>builder()
+                .status("success")
+                .message("Employee account deactivated successfully")
+                .data(null)
+                .timestamp(Instant.now())
+                .path(httpRequest.getRequestURI())
+                .build();
+
+        return ResponseEntity.ok(apiResponse);
     }
 
     @PutMapping("/{employeeId}/reactivate")
-    @PreAuthorize("hasRole('ADMIN')")
+    @RequiresRole({ UserRole.ADMIN })
     @Operation(summary = "Reactivate employee account", description = "Reactivates a deactivated employee account")
-    public ResponseEntity<ApiResponse<Void>> reactivateEmployee(@PathVariable Long employeeId) {
+    public ResponseEntity<ApiResponseDTO<Void>> reactivateEmployee(
+            @PathVariable Long employeeId,
+            HttpServletRequest httpRequest) {
+
         employeeManagementService.reactivateEmployee(employeeId);
-        return ResponseEntity.ok(ApiResponse.success(null, "Employee account reactivated successfully"));
+
+        ApiResponseDTO<Void> apiResponse = ApiResponseDTO.<Void>builder()
+                .status("success")
+                .message("Employee account reactivated successfully")
+                .data(null)
+                .timestamp(Instant.now())
+                .path(httpRequest.getRequestURI())
+                .build();
+
+        return ResponseEntity.ok(apiResponse);
     }
 
     @PostMapping("/{employeeId}/resend-password")
-    @PreAuthorize("hasRole('ADMIN')")
-    @Operation(summary = "Resend temporary password", 
-               description = "Generates and sends a new temporary password to employee's email")
-    public ResponseEntity<ApiResponse<Void>> resendTemporaryPassword(@PathVariable Long employeeId) {
+    @RequiresRole({ UserRole.ADMIN })
+    @Operation(summary = "Resend temporary password", description = "Generates and sends a new temporary password to employee's email")
+    public ResponseEntity<ApiResponseDTO<Void>> resendTemporaryPassword(
+            @PathVariable Long employeeId,
+            HttpServletRequest httpRequest) {
+
         employeeManagementService.resendTemporaryPassword(employeeId);
-        return ResponseEntity.ok(ApiResponse.success(null, "Temporary password sent successfully"));
+
+        ApiResponseDTO<Void> apiResponse = ApiResponseDTO.<Void>builder()
+                .status("success")
+                .message("Temporary password sent successfully")
+                .data(null)
+                .timestamp(Instant.now())
+                .path(httpRequest.getRequestURI())
+                .build();
+
+        return ResponseEntity.ok(apiResponse);
     }
-}
-
-class ApiResponse<T> {
-    private String status;
-    private String message;
-    private T data;
-    private String timestamp;
-
-    public static <T> ApiResponse<T> success(T data, String message) {
-        ApiResponse<T> response = new ApiResponse<>();
-        response.status = "success";
-        response.message = message;
-        response.data = data;
-        response.timestamp = java.time.LocalDateTime.now().toString();
-        return response;
-    }
-
-    // Getters and Setters
-    public String getStatus() { return status; }
-    public void setStatus(String status) { this.status = status; }
-    public String getMessage() { return message; }
-    public void setMessage(String message) { this.message = message; }
-    public T getData() { return data; }
-    public void setData(T data) { this.data = data; }
-    public String getTimestamp() { return timestamp; }
-    public void setTimestamp(String timestamp) { this.timestamp = timestamp; }
 }

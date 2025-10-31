@@ -26,4 +26,8 @@ public class UpdateEmployeeDTO {
     private String specialization;
 
     private LocalDate hireDate;
+
+    private String profileImage;
+
+    private String phoneNumber;
 }

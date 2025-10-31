@@ -8,6 +8,7 @@ import java.util.List;
 
 import com.ead.gearup.enums.AppointmentStatus;
 
+import com.ead.gearup.enums.ConsultationType;
 import jakarta.persistence.CascadeType;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
@@ -69,6 +70,13 @@ public class Appointment {
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "mechanic_id")
     private Employee employee;
+
+    @Enumerated(EnumType.STRING)
+    @Column(name = "consultation_type")
+    private ConsultationType consultationType;
+
+    @Column(length = 1000)
+    private String customerIssue;
 
     @OneToMany(mappedBy = "appointment", fetch = FetchType.LAZY, cascade = CascadeType.ALL, orphanRemoval = true)
     @Builder.Default
