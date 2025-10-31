@@ -5,13 +5,13 @@ import java.util.List;
 
 import org.springframework.data.jpa.repository.JpaRepository;
 import com.ead.gearup.dto.appointment.AppointmentSearchResponseProjection;
+import com.ead.gearup.enums.AppointmentStatus;
 import com.ead.gearup.model.Appointment;
+import com.ead.gearup.model.Customer;
 
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
-
-import com.ead.gearup.enums.AppointmentStatus;
 
 @Repository
 public interface AppointmentRepository extends JpaRepository<Appointment, Long> {
@@ -52,7 +52,7 @@ public interface AppointmentRepository extends JpaRepository<Appointment, Long> 
 
     List<Appointment> findByEmployeeEmployeeIdAndStatusAndDateAfter(Long employeeId, AppointmentStatus status, LocalDate date);
     
-    List<Appointment> findByCustomer(com.ead.gearup.model.Customer customer);
+    List<Appointment> findByCustomer(Customer customer);
 
     @Query(value = "SELECT a.appointment_id AS appointmentId, a.date, a.status, a.notes, a.start_time, a.end_time " +
             "FROM appointment a " +
@@ -60,5 +60,4 @@ public interface AppointmentRepository extends JpaRepository<Appointment, Long> 
             "JOIN users u ON c.user_id = u.user_id " +
             "WHERE u.name ILIKE %:name%", nativeQuery = true)
     List<AppointmentSearchResponseProjection> findAppointmentSearchResultsNative(@Param("name") String name);
-
 }
