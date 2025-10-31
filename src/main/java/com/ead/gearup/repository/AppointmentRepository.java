@@ -53,6 +53,11 @@ public interface AppointmentRepository extends JpaRepository<Appointment, Long> 
     List<Appointment> findByEmployeeEmployeeIdAndStatusAndDateAfter(Long employeeId, AppointmentStatus status, LocalDate date);
     
     List<Appointment> findByCustomer(Customer customer);
+    
+    // Additional methods for chatbot integration
+    List<Appointment> findByCustomerAndStatus(Customer customer, AppointmentStatus status);
+    List<Appointment> findByCustomerAndDateAfter(Customer customer, LocalDate date);
+    List<Appointment> findByCustomerAndDateGreaterThanEqual(Customer customer, LocalDate date);
 
     @Query(value = "SELECT a.appointment_id AS appointmentId, a.date, a.status, a.notes, a.start_time, a.end_time " +
             "FROM appointment a " +

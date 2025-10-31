@@ -9,6 +9,7 @@ from datetime import datetime
 
 from app.services.gemini_service import GeminiService
 from app.services.vector_db_service import VectorDBService
+from app.services.appointment_service import appointment_service
 from app.models.schemas import ChatResponse, ChatStreamChunk, ChatMessage
 from app.database.chat_history_db import (
     save_chat_message,
@@ -32,7 +33,10 @@ class RAGService:
         question: str,
         session_id: Optional[str] = None,
         conversation_history: Optional[List[ChatMessage]] = None,
-        filters: Optional[Dict[str, Any]] = None
+        filters: Optional[Dict[str, Any]] = None,
+        customer_id: Optional[int] = None,
+        customer_email: Optional[str] = None,
+        auth_token: Optional[str] = None
     ) -> ChatResponse:
         """
         Process user query with RAG
@@ -42,6 +46,9 @@ class RAGService:
             session_id: Session identifier
             conversation_history: Previous conversation messages
             filters: Additional filters for context retrieval
+            customer_id: Customer ID for appointment queries
+            customer_email: Customer email for appointment queries
+            auth_token: JWT token for API authentication
         
         Returns:
             ChatResponse with answer and metadata
@@ -50,6 +57,43 @@ class RAGService:
         session_id = session_id or str(uuid.uuid4())
         
         try:
+            # Check if this is an appointment-related query
+            appointment_keywords = [
+                "appointment", "appointments", "scheduled", "booking", "book",
+                "available", "upcoming", "when is my", "what appointments",
+                "do i have", "schedule", "slots", "meeting"
+            ]
+            
+            question_lower = question.lower()
+            is_appointment_query = any(keyword in question_lower for keyword in appointment_keywords)
+            
+            if is_appointment_query:
+                logger.info(f"Processing appointment query: {question[:50]}...")
+                
+                # Handle appointment-specific query
+                appointment_response = await appointment_service.process_appointment_query(
+                    query=question,
+                    customer_id=customer_id,
+                    customer_email=customer_email,
+                    auth_token=auth_token
+                )
+                
+                # Calculate processing time
+                processing_time = int((time.time() - start_time) * 1000)
+                
+                # Store in chat history
+                await self._save_to_history(session_id, question, appointment_response)
+                
+                return ChatResponse(
+                    answer=appointment_response,
+                    session_id=session_id,
+                    from_cache=False,
+                    processing_time_ms=processing_time,
+                    timestamp=datetime.utcnow(),
+                    confidence=0.9,  # High confidence for direct API calls
+                    sources=["appointment_api"]
+                )
+            
             # Step 1: Retrieve relevant context from vector DB
             logger.info(f"Retrieving context for: {question[:50]}...")
             relevant_docs = await self.vector_db_service.search(

@@ -118,7 +118,10 @@ async def chat(request: ChatRequest) -> ChatResponse:
             filters={
                 "appointment_date": request.appointmentDate,
                 "service_type": request.serviceType
-            }
+            },
+            customer_id=getattr(request, 'customerId', None),
+            customer_email=getattr(request, 'customerEmail', None),
+            auth_token=getattr(request, 'authToken', None)
         )
         
         return response

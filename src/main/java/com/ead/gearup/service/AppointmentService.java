@@ -15,6 +15,7 @@ import com.ead.gearup.dto.appointment.AppointmentSearchResponseDTO;
 import com.ead.gearup.dto.appointment.AppointmentSearchResponseProjection;
 import com.ead.gearup.dto.appointment.AppointmentUpdateDTO;
 import com.ead.gearup.dto.employee.EmployeeAvailableSlotsDTO;
+import com.ead.gearup.enums.AppointmentStatus;
 import com.ead.gearup.enums.UserRole;
 import com.ead.gearup.exception.AppointmentNotFoundException;
 import com.ead.gearup.exception.CustomerNotFoundException;
@@ -107,6 +108,54 @@ public class AppointmentService {
         }
 
         appointmentRepository.deleteById(appointmentId);
+    }
+
+    /**
+     * Get appointments by specific customer ID (for chatbot/external services)
+     */
+    public List<AppointmentResponseDTO> getAppointmentsByCustomerId(Long customerId) {
+        Customer customer = customerRepository.findById(customerId)
+                .orElseThrow(() -> new CustomerNotFoundException("Customer not found: " + customerId));
+
+        List<Appointment> appointments = appointmentRepository.findByCustomer(customer);
+        return appointments.stream()
+                .map(converter::convertToResponseDto)
+                .collect(Collectors.toList());
+    }
+
+    /**
+     * Get available appointments (PENDING status) for a customer
+     */
+    public List<AppointmentResponseDTO> getAvailableAppointmentsByCustomerId(Long customerId) {
+        Customer customer = customerRepository.findById(customerId)
+                .orElseThrow(() -> new CustomerNotFoundException("Customer not found: " + customerId));
+
+        List<Appointment> appointments = appointmentRepository.findByCustomer(customer)
+                .stream()
+                .filter(appointment -> appointment.getStatus() == AppointmentStatus.PENDING)
+                .collect(Collectors.toList());
+
+        return appointments.stream()
+                .map(converter::convertToResponseDto)
+                .collect(Collectors.toList());
+    }
+
+    /**
+     * Get upcoming appointments for a customer (future dates only)
+     */
+    public List<AppointmentResponseDTO> getUpcomingAppointmentsByCustomerId(Long customerId) {
+        Customer customer = customerRepository.findById(customerId)
+                .orElseThrow(() -> new CustomerNotFoundException("Customer not found: " + customerId));
+
+        List<Appointment> appointments = appointmentRepository.findByCustomer(customer)
+                .stream()
+                .filter(appointment -> appointment.getDate().isAfter(LocalDate.now()) || 
+                       appointment.getDate().equals(LocalDate.now()))
+                .collect(Collectors.toList());
+
+        return appointments.stream()
+                .map(converter::convertToResponseDto)
+                .collect(Collectors.toList());
     }
 
     // Additional methods needed by the controller

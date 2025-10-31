@@ -19,6 +19,9 @@ class ChatRequest(BaseModel):
     conversationHistory: Optional[List[ChatMessage]] = None
     appointmentDate: Optional[str] = None
     serviceType: Optional[str] = None
+    customerId: Optional[int] = None
+    customerEmail: Optional[str] = None
+    authToken: Optional[str] = None
 
 
 class ChatResponse(BaseModel):
