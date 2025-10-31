@@ -56,11 +56,13 @@ public class SecurityConfig {
                                 "/graphiql/**",
                                 "/vendor/**",
                                 "/swagger-ui.html",
+                                "/swagger",
                                 "/api/v1/auth/**",
                                 "/api/v1/public/**",
                                 "/actuator/**")
                         .permitAll()
                         .requestMatchers("/api/v1/admin/**").hasRole("ADMIN")
+                        .requestMatchers("/api/v1/chat/**").authenticated() // Chat requires authentication
                         // .requestMatchers("/api/v1/customers/**").hasRole("CUSTOMER")
                         // .requestMatchers("/api/v1/employees/**").hasRole("EMPLOYEE")
                         .anyRequest().authenticated())

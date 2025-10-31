@@ -98,4 +98,15 @@ public class VehicleService {
 
         return converter.convertToResponseDto(savedVehicle);
     }
+
+    public List<VehicleResponseDTO> getVehiclesForCurrentCustomer() {
+        Customer customer = customerRepository.findById(currentUserService.getCurrentEntityId())
+                .orElseThrow(() -> new CustomerNotFoundException(
+                        "Customer not found: " + currentUserService.getCurrentEntityId()));
+
+        List<Vehicle> vehicles = vehicleRepository.findByCustomer(customer);
+        return vehicles.stream()
+                .map(converter::convertToResponseDto)
+                .collect(Collectors.toList());
+    }
 }

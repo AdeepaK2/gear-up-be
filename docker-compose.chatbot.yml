@@ -1,0 +1,106 @@
+# Docker Compose for GearUp with AI Chatbot
+version: '3.8'
+
+services:
+  # PostgreSQL Database (existing)
+  postgres:
+    image: postgres:15-alpine
+    container_name: gearup-postgres
+    environment:
+      POSTGRES_DB: gearup
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    networks:
+      - gearup-network
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # Redis for caching
+  redis:
+    image: redis:7-alpine
+    container_name: gearup-redis
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    networks:
+      - gearup-network
+    command: redis-server --appendonly yes
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 3s
+      retries: 5
+
+  # Python FastAPI Chatbot Service
+  chatbot-service:
+    build:
+      context: ./chatbot-service
+      dockerfile: Dockerfile
+    container_name: gearup-chatbot
+    ports:
+      - "8000:8000"
+    environment:
+      - GEMINI_API_KEY=${GEMINI_API_KEY}
+      - GEMINI_MODEL=gemini-2.0-flash-exp
+      - USE_PINECONE=${USE_PINECONE:-false}
+      - PINECONE_API_KEY=${PINECONE_API_KEY:-}
+      - USE_FAISS=true
+      - DATABASE_URL=postgresql+asyncpg://postgres:postgres@postgres:5432/gearup
+      - HOST=0.0.0.0
+      - PORT=8000
+      - DEBUG=true
+    volumes:
+      - ./chatbot-service:/app
+      - faiss_data:/app/data
+    networks:
+      - gearup-network
+    depends_on:
+      postgres:
+        condition: service_healthy
+    restart: unless-stopped
+
+  # Spring Boot Backend
+  backend:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: gearup-backend
+    ports:
+      - "8080:8080"
+    environment:
+      - SPRING_DATASOURCE_URL=jdbc:postgresql://postgres:5432/gearup
+      - SPRING_DATASOURCE_USERNAME=postgres
+      - SPRING_DATASOURCE_PASSWORD=postgres
+      - JWT_SECRET=${JWT_SECRET}
+      - MAIL_USERNAME=${MAIL_USERNAME}
+      - MAIL_PASSWORD=${MAIL_PASSWORD}
+      - SPRING_DATA_REDIS_HOST=redis
+      - SPRING_DATA_REDIS_PORT=6379
+      - CHATBOT_PYTHON_SERVICE_URL=http://chatbot-service:8000
+    networks:
+      - gearup-network
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      chatbot-service:
+        condition: service_started
+    restart: unless-stopped
+
+networks:
+  gearup-network:
+    driver: bridge
+
+volumes:
+  postgres_data:
+  redis_data:
+  faiss_data:
