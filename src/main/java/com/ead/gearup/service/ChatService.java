@@ -60,9 +60,10 @@ public class ChatService {
             return Mono.just(cachedResponse);
         }
 
-        // Call Python service
+        // Call Python service with userId in header
         return chatbotWebClient.post()
                 .uri("/chat")
+                .header("X-User-Id", userId.toString())
                 .bodyValue(request)
                 .retrieve()
                 .bodyToMono(JsonNode.class)
@@ -123,9 +124,10 @@ public class ChatService {
                     .build());
         }
 
-        // Stream from Python service
+        // Stream from Python service with userId in header
         return chatbotWebClient.post()
                 .uri("/chat/stream")
+                .header("X-User-Id", userId.toString())
                 .bodyValue(request)
                 .retrieve()
                 .bodyToFlux(JsonNode.class)

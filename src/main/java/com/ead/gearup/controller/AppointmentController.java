@@ -18,6 +18,7 @@ import com.ead.gearup.dto.employee.EmployeeAvailableSlotsDTO;
 import com.ead.gearup.dto.response.ApiResponseDTO;
 import com.ead.gearup.enums.AppointmentStatus;
 import com.ead.gearup.service.AppointmentService;
+import com.ead.gearup.service.VehicleService;
 import com.ead.gearup.service.auth.CurrentUserService;
 
 import io.swagger.v3.oas.annotations.Operation;
@@ -41,6 +42,7 @@ import lombok.RequiredArgsConstructor;
 public class AppointmentController {
 
     private final AppointmentService appointmentService;
+    private final VehicleService vehicleService;
     private final CurrentUserService currentUserService;
 
     // @RequiresRole({ UserRole.CUSTOMER })
@@ -184,7 +186,7 @@ public class AppointmentController {
     public ResponseEntity<ApiResponseDTO<List<VehicleResponseDTO>>> getVehiclesForAppointments(
             HttpServletRequest request) {
 
-        List<VehicleResponseDTO> vehicles = appointmentService.getVehiclesForCurrentCustomer();
+        List<VehicleResponseDTO> vehicles = vehicleService.getVehiclesForCurrentCustomer();
 
         ApiResponseDTO<List<VehicleResponseDTO>> response = ApiResponseDTO.<List<VehicleResponseDTO>>builder()
                 .status("success")

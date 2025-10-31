@@ -51,6 +51,8 @@ public interface AppointmentRepository extends JpaRepository<Appointment, Long> 
         );
 
     List<Appointment> findByEmployeeEmployeeIdAndStatusAndDateAfter(Long employeeId, AppointmentStatus status, LocalDate date);
+    
+    List<Appointment> findByCustomer(com.ead.gearup.model.Customer customer);
 
     @Query(value = "SELECT a.appointment_id AS appointmentId, a.date, a.status, a.notes, a.start_time, a.end_time " +
             "FROM appointment a " +
