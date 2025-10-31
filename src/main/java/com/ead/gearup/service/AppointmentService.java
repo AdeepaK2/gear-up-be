@@ -1,5 +1,8 @@
 package com.ead.gearup.service;
 
+import java.util.List;
+import java.util.stream.Collectors;
+
 import org.springframework.stereotype.Service;
 
 import com.ead.gearup.dto.appointment.AppointmentCreateDTO;
@@ -45,6 +48,25 @@ public class AppointmentService {
         return converter.convertToResponseDto(appointment);
     }
 
+    public List<AppointmentResponseDTO> getAllAppointmentsForCurrentCustomer() {
+        Customer customer = customerRepository.findById(currentUserService.getCurrentEntityId())
+                .orElseThrow(() -> new CustomerNotFoundException(
+                        "Customer not found: " + currentUserService.getCurrentEntityId()));
+
+        List<Appointment> appointments = appointmentRepository.findByCustomer(customer);
+
+        return appointments.stream()
+                .map(converter::convertToResponseDto)
+                .collect(Collectors.toList());
+    }
+
+    public AppointmentResponseDTO getAppointmentById(Long appointmentId) {
+        Appointment appointment = appointmentRepository.findById(appointmentId)
+                .orElseThrow(() -> new AppointmentNotFoundException("Appointment not found: " + appointmentId));
+
+        return converter.convertToResponseDto(appointment);
+    }
+
     public AppointmentResponseDTO updateAppointment(Long appointmentId, AppointmentUpdateDTO updateDTO) {
         Appointment appointment = appointmentRepository.findById(appointmentId)
                 .orElseThrow(() -> new AppointmentNotFoundException("Appointment not found: " + appointmentId));
@@ -60,5 +82,13 @@ public class AppointmentService {
         appointmentRepository.save(updatedAppointment);
 
         return converter.convertToResponseDto(updatedAppointment);
+    }
+
+    public void deleteAppointment(Long appointmentId) {
+        if (!appointmentRepository.existsById(appointmentId)) {
+            throw new AppointmentNotFoundException("Appointment not found: " + appointmentId);
+        }
+
+        appointmentRepository.deleteById(appointmentId);
     }
 }

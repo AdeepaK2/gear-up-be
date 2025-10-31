@@ -1,10 +1,13 @@
 package com.ead.gearup.controller;
 
 import java.time.Instant;
+import java.util.List;
 
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
+import org.springframework.web.bind.annotation.DeleteMapping;
+import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PatchMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
@@ -81,6 +84,44 @@ public class AppointmentController {
         return ResponseEntity.status(HttpStatus.CREATED).body(response);
     }
 
+    @GetMapping
+    @Operation(
+        summary = "Get all appointments for current customer",
+        description = "Retrieves all appointments for the authenticated customer"
+    )
+    public ResponseEntity<ApiResponseDTO<List<AppointmentResponseDTO>>> getAllAppointments(HttpServletRequest request) {
+        List<AppointmentResponseDTO> appointments = appointmentService.getAllAppointmentsForCurrentCustomer();
+
+        ApiResponseDTO<List<AppointmentResponseDTO>> response = ApiResponseDTO.<List<AppointmentResponseDTO>>builder()
+                .status("success")
+                .message("Appointments retrieved successfully")
+                .data(appointments)
+                .timestamp(Instant.now())
+                .path(request.getRequestURI())
+                .build();
+
+        return ResponseEntity.ok(response);
+    }
+
+    @GetMapping("/{id}")
+    @Operation(
+        summary = "Get appointment by ID",
+        description = "Retrieves a specific appointment by its ID"
+    )
+    public ResponseEntity<ApiResponseDTO<AppointmentResponseDTO>> getAppointmentById(@PathVariable Long id, HttpServletRequest request) {
+        AppointmentResponseDTO appointment = appointmentService.getAppointmentById(id);
+
+        ApiResponseDTO<AppointmentResponseDTO> response = ApiResponseDTO.<AppointmentResponseDTO>builder()
+                .status("success")
+                .message("Appointment retrieved successfully")
+                .data(appointment)
+                .timestamp(Instant.now())
+                .path(request.getRequestURI())
+                .build();
+
+        return ResponseEntity.ok(response);
+    }
+
     @PatchMapping(value = "/{id}")
     public ResponseEntity<ApiResponseDTO<AppointmentResponseDTO>> updateAppointment(@PathVariable Long id,
             @RequestBody @Valid AppointmentUpdateDTO appointmentUpdateDTO, HttpServletRequest request) {
@@ -91,6 +132,25 @@ public class AppointmentController {
                 .status("success")
                 .message("Appointment updated successfully")
                 .data(appointmentResponseDTO)
+                .timestamp(Instant.now())
+                .path(request.getRequestURI())
+                .build();
+
+        return ResponseEntity.ok(response);
+    }
+
+    @DeleteMapping("/{id}")
+    @Operation(
+        summary = "Delete appointment",
+        description = "Deletes an appointment by its ID"
+    )
+    public ResponseEntity<ApiResponseDTO<Void>> deleteAppointment(@PathVariable Long id, HttpServletRequest request) {
+        appointmentService.deleteAppointment(id);
+
+        ApiResponseDTO<Void> response = ApiResponseDTO.<Void>builder()
+                .status("success")
+                .message("Appointment deleted successfully")
+                .data(null)
                 .timestamp(Instant.now())
                 .path(request.getRequestURI())
                 .build();
