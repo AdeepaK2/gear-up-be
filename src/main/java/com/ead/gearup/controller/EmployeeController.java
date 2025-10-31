@@ -102,6 +102,24 @@ public class EmployeeController {
     }
 
     // @RequiresRole({UserRole.ADMIN, UserRole.EMPLOYEE, UserRole.PUBLIC})
+    @GetMapping("/{id}/dependencies")
+    public ResponseEntity<ApiResponseDTO<Object>> checkEmployeeDependencies(@PathVariable Long id,
+            HttpServletRequest request) {
+
+        var dependencies = employeeService.checkEmployeeDependencies(id);
+
+        ApiResponseDTO<Object> response = ApiResponseDTO.builder()
+                .status("success")
+                .message("Employee dependencies retrieved successfully")
+                .timestamp(Instant.now())
+                .path(request.getRequestURI())
+                .data(dependencies)
+                .build();
+
+        return ResponseEntity.ok(response);
+    }
+
+    // @RequiresRole({UserRole.ADMIN, UserRole.EMPLOYEE, UserRole.PUBLIC})
     @DeleteMapping("/{id}")
     public ResponseEntity<ApiResponseDTO<Void>> deleteEmployee(@PathVariable Long id, HttpServletRequest request) {
 
