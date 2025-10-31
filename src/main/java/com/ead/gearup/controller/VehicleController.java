@@ -3,6 +3,8 @@ package com.ead.gearup.controller;
 import java.time.Instant;
 import java.util.List;
 
+import com.ead.gearup.enums.UserRole;
+import com.ead.gearup.validation.RequiresRole;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
@@ -43,7 +45,7 @@ public class VehicleController {
 
     private final VehicleService vehicleService;
 
-//     @RequiresRole({ UserRole.CUSTOMER })
+    @RequiresRole({ UserRole.CUSTOMER })
     @PostMapping(consumes = MediaType.APPLICATION_JSON_VALUE, produces = MediaType.APPLICATION_JSON_VALUE)
     @Operation(
         summary = "Create a new vehicle",
@@ -111,6 +113,7 @@ public class VehicleController {
         return ResponseEntity.status(HttpStatus.CREATED).body(response);
     }
 
+    @RequiresRole({ UserRole.CUSTOMER })
     @GetMapping("/{id}")
     public ResponseEntity<ApiResponseDTO<VehicleResponseDTO>> getVehicleById(@PathVariable Long id,
             HttpServletRequest request) {
@@ -128,6 +131,7 @@ public class VehicleController {
         return ResponseEntity.ok().body(response);
     }
 
+    @RequiresRole({ UserRole.CUSTOMER })
     @GetMapping
     public ResponseEntity<ApiResponseDTO<List<VehicleResponseDTO>>> getAllVehicles(HttpServletRequest request) {
 
@@ -144,6 +148,7 @@ public class VehicleController {
         return ResponseEntity.ok(response);
     }
 
+    @RequiresRole({ UserRole.CUSTOMER })
     @DeleteMapping("/{id}")
     public ResponseEntity<ApiResponseDTO<Void>> deleteVehicle(@PathVariable Long id, HttpServletRequest request) {
 

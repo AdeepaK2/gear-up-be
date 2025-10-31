@@ -3,6 +3,8 @@ package com.ead.gearup.controller;
 import java.time.Instant;
 import java.util.List;
 
+import org.springframework.format.annotation.DateTimeFormat;
+import com.ead.gearup.dto.vehicle.VehicleResponseDTO;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
@@ -18,8 +20,11 @@ import org.springframework.web.bind.annotation.RestController;
 import com.ead.gearup.dto.appointment.AppointmentCreateDTO;
 import com.ead.gearup.dto.appointment.AppointmentResponseDTO;
 import com.ead.gearup.dto.appointment.AppointmentUpdateDTO;
+import com.ead.gearup.dto.employee.EmployeeAvailableSlotsDTO;
 import com.ead.gearup.dto.response.ApiResponseDTO;
+import com.ead.gearup.enums.AppointmentStatus;
 import com.ead.gearup.service.AppointmentService;
+import com.ead.gearup.service.auth.CurrentUserService;
 
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
@@ -42,6 +47,7 @@ import lombok.RequiredArgsConstructor;
 public class AppointmentController {
 
     private final AppointmentService appointmentService;
+    private final CurrentUserService currentUserService;
 
     // @RequiresRole({ UserRole.CUSTOMER })
     @PostMapping(consumes = MediaType.APPLICATION_JSON_VALUE, produces = MediaType.APPLICATION_JSON_VALUE)
@@ -83,6 +89,7 @@ public class AppointmentController {
 
         return ResponseEntity.status(HttpStatus.CREATED).body(response);
     }
+    
 
     @GetMapping
     @Operation(

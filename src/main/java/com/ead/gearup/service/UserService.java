@@ -4,8 +4,8 @@ import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
-import com.ead.gearup.dto.ChangePasswordRequest;
-import com.ead.gearup.dto.PasswordChangeResponse;
+import com.ead.gearup.dto.user.PasswordChangeRequest;
+import com.ead.gearup.dto.user.PasswordChangeResponse;
 import com.ead.gearup.model.User;
 import com.ead.gearup.repository.UserRepository;
 
@@ -21,24 +21,25 @@ public class UserService {
     private final PasswordEncoder passwordEncoder;
 
     @Transactional
-    public PasswordChangeResponse changePassword(String userEmail, ChangePasswordRequest request) {
+    public PasswordChangeResponse changePassword(String userEmail, PasswordChangeRequest request) {
+        
         // Validate passwords match
         if (!request.getNewPassword().equals(request.getConfirmPassword())) {
-            throw new RuntimeException("New password and confirmation do not match");
+            throw new IllegalArgumentException("New password and confirmation do not match");
         }
 
         // Find user
         User user = userRepository.findByEmail(userEmail)
-                .orElseThrow(() -> new RuntimeException("User not found"));
+                .orElseThrow(() -> new IllegalArgumentException("User not found"));
 
         // Verify current password
         if (!passwordEncoder.matches(request.getCurrentPassword(), user.getPassword())) {
-            throw new RuntimeException("Current password is incorrect");
+            throw new IllegalArgumentException("Current password is incorrect");
         }
 
         // Check if new password is different from current
         if (passwordEncoder.matches(request.getNewPassword(), user.getPassword())) {
-            throw new RuntimeException("New password must be different from current password");
+            throw new IllegalArgumentException("New password must be different from current password");
         }
 
         // Update password

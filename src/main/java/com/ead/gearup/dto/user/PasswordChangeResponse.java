@@ -1,4 +1,4 @@
-package com.ead.gearup.dto;
+package com.ead.gearup.dto.user;
 
 import lombok.AllArgsConstructor;
 import lombok.Data;

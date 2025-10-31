@@ -1,0 +1,14 @@
+type Appointment {
+  appointmentId: ID!
+  date: String
+  status: String
+  startTime: String
+  endTime: String
+  notes: String
+  createdAt: String
+  updatedAt: String
+  customer: Customer
+  vehicle: Vehicle
+  employee: Employee
+  tasks: [Task]
+}

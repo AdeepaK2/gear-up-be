@@ -7,7 +7,9 @@ import org.springframework.stereotype.Service;
 
 import com.ead.gearup.dto.appointment.AppointmentCreateDTO;
 import com.ead.gearup.dto.appointment.AppointmentResponseDTO;
+import com.ead.gearup.dto.appointment.AppointmentSearchResponseDTO;
 import com.ead.gearup.dto.appointment.AppointmentUpdateDTO;
+import com.ead.gearup.dto.employee.EmployeeAvailableSlotsDTO;
 import com.ead.gearup.exception.AppointmentNotFoundException;
 import com.ead.gearup.exception.CustomerNotFoundException;
 import com.ead.gearup.exception.VehicleNotFoundException;
@@ -22,8 +24,15 @@ import com.ead.gearup.util.AppointmentDTOConverter;
 
 import lombok.RequiredArgsConstructor;
 
+import java.time.LocalDate;
+import java.time.LocalTime;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.stream.Collectors;
+
 @Service
 @RequiredArgsConstructor
+@Transactional
 public class AppointmentService {
 
     private final CurrentUserService currentUserService;
@@ -32,6 +41,7 @@ public class AppointmentService {
     private final AppointmentDTOConverter converter;
     private final AppointmentRepository appointmentRepository;
 
+    @RequiresRole(UserRole.CUSTOMER)
     public AppointmentResponseDTO createAppointment(AppointmentCreateDTO appointmentCreateDTO) {
         Customer customer = customerRepository.findById(currentUserService.getCurrentEntityId())
                 .orElseThrow(() -> new CustomerNotFoundException(
@@ -42,7 +52,6 @@ public class AppointmentService {
                         "Vehicle not found: " + appointmentCreateDTO.getVehicleId()));
 
         Appointment appointment = converter.convertToEntity(appointmentCreateDTO, vehicle, customer);
-
         appointmentRepository.save(appointment);
 
         return converter.convertToResponseDto(appointment);
@@ -77,8 +86,14 @@ public class AppointmentService {
             }
         }
 
-        Appointment updatedAppointment = converter.updateEntityFromDto(appointment, updateDTO);
+        if (currentUserService.getCurrentUserRole() == UserRole.CUSTOMER) {
+            Long customerId = currentUserService.getCurrentEntityId();
+            if (!appointment.getCustomer().getCustomerId().equals(customerId)) {
+                throw new UnauthorizedAppointmentAccessException("You cannot update another customer's appointment");
+            }
+        }
 
+        Appointment updatedAppointment = converter.updateEntityFromDto(appointment, updateDTO);
         appointmentRepository.save(updatedAppointment);
 
         return converter.convertToResponseDto(updatedAppointment);

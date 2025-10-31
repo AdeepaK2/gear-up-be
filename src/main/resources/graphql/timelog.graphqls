@@ -1,0 +1,11 @@
+type TimeLog {
+  logId: ID!
+  description: String
+  startTime: String
+  endTime: String
+  hoursWorked: Float
+  loggedAt: String
+  employee: Employee
+  project: Project
+  task: Task
+}
