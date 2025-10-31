@@ -24,8 +24,10 @@ import com.ead.gearup.exception.EmailAlreadyExistsException;
 import com.ead.gearup.exception.InvalidRefreshTokenException;
 import com.ead.gearup.exception.ResendEmailCooldownException;
 import com.ead.gearup.exception.UserNotFoundException;
+import com.ead.gearup.model.Customer;
 import com.ead.gearup.model.User;
 import com.ead.gearup.model.UserPrinciple;
+import com.ead.gearup.repository.CustomerRepository;
 import com.ead.gearup.repository.UserRepository;
 import com.ead.gearup.service.auth.CustomUserDetailsService;
 import com.ead.gearup.service.auth.JwtService;
@@ -43,6 +45,7 @@ public class AuthService {
 
     private final PasswordEncoder encoder;
     private final UserRepository userRepository;
+    private final CustomerRepository customerRepository;
     private final AuthenticationManager authManager;
     private final JwtService jwtService;
     private final CustomUserDetailsService customUserDetailsService;
@@ -66,6 +69,15 @@ public class AuthService {
             userRepository.save(user);
         } catch (DataIntegrityViolationException e) {
             throw new EmailAlreadyExistsException(email);
+        }
+
+        // Create corresponding Customer entity for users with CUSTOMER role
+        if (user.getRole() == UserRole.CUSTOMER) {
+            Customer customer = Customer.builder()
+                    .user(user)
+                    .phoneNumber(null) // Can be updated later in profile
+                    .build();
+            customerRepository.save(customer);
         }
 
         emailVerificationService.sendVerificationEmail(user);

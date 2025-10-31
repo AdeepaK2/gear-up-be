@@ -16,8 +16,13 @@ import com.ead.gearup.dto.response.ApiResponseDTO;
 import com.ead.gearup.dto.user.UserCreateDTO;
 import com.ead.gearup.dto.response.UserResponseDTO;
 import com.ead.gearup.enums.UserRole;
+import com.ead.gearup.model.Customer;
 import com.ead.gearup.model.User;
+import com.ead.gearup.repository.CustomerRepository;
 import com.ead.gearup.repository.UserRepository;
+
+import java.util.List;
+import java.util.stream.Collectors;
 
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
@@ -40,6 +45,7 @@ import lombok.RequiredArgsConstructor;
 public class AdminController {
 
     private final UserRepository userRepository;
+    private final CustomerRepository customerRepository;
     private final PasswordEncoder passwordEncoder;
 
     @GetMapping("/check-init")
@@ -176,6 +182,52 @@ public class AdminController {
         return ResponseEntity.status(HttpStatus.CREATED).body(response);
     }
 
+    @PostMapping("/migrate-customers")
+    @Operation(
+        summary = "Migrate existing users to create missing Customer records",
+        description = "Creates Customer entities for all users with CUSTOMER role who don't have a Customer record. This is a one-time migration endpoint."
+    )
+    @ApiResponses(value = {
+        @ApiResponse(
+            responseCode = "200",
+            description = "Migration completed successfully",
+            content = @Content(
+                mediaType = "application/json",
+                schema = @Schema(implementation = ApiResponseDTO.class)
+            )
+        )
+    })
+    public ResponseEntity<ApiResponseDTO<Object>> migrateCustomers(HttpServletRequest request) {
+        // Find all users with CUSTOMER role who don't have a Customer entity
+        List<User> usersWithoutCustomer = userRepository.findAll().stream()
+                .filter(user -> user.getRole() == UserRole.CUSTOMER)
+                .filter(user -> customerRepository.findByUser(user).isEmpty())
+                .collect(Collectors.toList());
+
+        int migratedCount = 0;
+        for (User user : usersWithoutCustomer) {
+            Customer customer = Customer.builder()
+                    .user(user)
+                    .phoneNumber(null) // Can be updated later in profile
+                    .build();
+            customerRepository.save(customer);
+            migratedCount++;
+        }
+
+        ApiResponseDTO<Object> response = ApiResponseDTO.builder()
+                .status("success")
+                .message("Migration completed. Created " + migratedCount + " Customer records.")
+                .data(new MigrationResponse(migratedCount, usersWithoutCustomer.size()))
+                .timestamp(Instant.now())
+                .path(request.getRequestURI())
+                .build();
+
+        return ResponseEntity.ok(response);
+    }
+
     // Inner class for admin check response
     private record AdminCheckResponse(boolean adminExists, String adminEmail) {}
+
+    // Inner class for migration response
+    private record MigrationResponse(int createdRecords, int totalUsersProcessed) {}
 }
