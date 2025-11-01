@@ -6,6 +6,7 @@ import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.security.core.userdetails.UserDetails;
+import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.reactive.function.client.WebClient;
 import org.springframework.web.reactive.function.client.WebClientResponseException;
@@ -23,6 +24,7 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 
 import java.time.Instant;
+import java.util.Map;
 
 @RestController
 @RequestMapping("/api/v1/rag-chat")
@@ -183,6 +185,162 @@ public class ChatbotProxyController {
     }
 
     /**
+     * Get all chat sessions for current customer
+     */
+    @GetMapping("/sessions")
+    @Operation(
+        summary = "Get chat sessions",
+        description = "Retrieve all chat sessions for the current customer"
+    )
+    public ResponseEntity<ApiResponseDTO<Object>> getChatSessions(
+            @RequestParam(defaultValue = "20") int limit,
+            HttpServletRequest httpRequest) {
+
+        try {
+            String customerEmail = getCurrentCustomerEmail();
+            log.info("Getting chat sessions for customer: {}", customerEmail);
+
+            WebClient webClient = webClientBuilder.build();
+            Object sessions = webClient
+                    .get()
+                    .uri(chatbotServiceUrl + "/chat/sessions?limit=" + limit + "&customerEmail=" + customerEmail)
+                    .retrieve()
+                    .bodyToMono(Object.class)
+                    .block();
+
+            ApiResponseDTO<Object> response = ApiResponseDTO.<Object>builder()
+                    .status("success")
+                    .message("Chat sessions retrieved successfully")
+                    .data(sessions)
+                    .timestamp(Instant.now())
+                    .path(httpRequest.getRequestURI())
+                    .build();
+
+            return ResponseEntity.ok(response);
+
+        } catch (Exception e) {
+            log.error("Error getting chat sessions", e);
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                    .body(ApiResponseDTO.<Object>builder()
+                            .status("error")
+                            .message("Error getting chat sessions: " + e.getMessage())
+                            .timestamp(Instant.now())
+                            .path(httpRequest.getRequestURI())
+                            .build());
+        }
+    }
+
+    /**
+     * Create new chat session
+     */
+    @PostMapping("/sessions")
+    @Operation(
+        summary = "Create chat session",
+        description = "Create a new chat session for the current customer"
+    )
+    public ResponseEntity<ApiResponseDTO<Object>> createChatSession(
+            @RequestParam(required = false) String title,
+            HttpServletRequest httpRequest) {
+
+        try {
+            String customerEmail = getCurrentCustomerEmail();
+            log.info("Creating new chat session for customer: {}", customerEmail);
+            log.info("Calling Python service at: {}/chat/sessions", chatbotServiceUrl);
+
+            WebClient webClient = webClientBuilder.build();
+            
+            Map<String, String> requestBody = Map.of(
+                "customerEmail", customerEmail,
+                "title", title != null ? title : "New Chat"
+            );
+            log.info("Request body: {}", requestBody);
+            
+            Object session = webClient
+                    .post()
+                    .uri(chatbotServiceUrl + "/chat/sessions")
+                    .contentType(MediaType.APPLICATION_JSON)
+                    .bodyValue(requestBody)
+                    .retrieve()
+                    .bodyToMono(Object.class)
+                    .block();
+
+            ApiResponseDTO<Object> response = ApiResponseDTO.<Object>builder()
+                    .status("success")
+                    .message("Chat session created successfully")
+                    .data(session)
+                    .timestamp(Instant.now())
+                    .path(httpRequest.getRequestURI())
+                    .build();
+
+            return ResponseEntity.ok(response);
+
+        } catch (WebClientResponseException e) {
+            log.error("Python service error - Status: {}, Response: {}", e.getStatusCode(), e.getResponseBodyAsString());
+            return ResponseEntity.status(e.getStatusCode())
+                    .body(ApiResponseDTO.<Object>builder()
+                            .status("error")
+                            .message("Python service error: " + e.getResponseBodyAsString())
+                            .timestamp(Instant.now())
+                            .path(httpRequest.getRequestURI())
+                            .build());
+        } catch (Exception e) {
+            log.error("Error creating chat session", e);
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                    .body(ApiResponseDTO.<Object>builder()
+                            .status("error")
+                            .message("Error creating chat session: " + e.getMessage())
+                            .timestamp(Instant.now())
+                            .path(httpRequest.getRequestURI())
+                            .build());
+        }
+    }
+
+    /**
+     * Delete chat session
+     */
+    @DeleteMapping("/sessions/{sessionId}")
+    @Operation(
+        summary = "Delete chat session",
+        description = "Delete a chat session and its history"
+    )
+    public ResponseEntity<ApiResponseDTO<Object>> deleteChatSession(
+            @PathVariable String sessionId,
+            HttpServletRequest httpRequest) {
+
+        try {
+            log.info("Deleting chat session: {}", sessionId);
+
+            WebClient webClient = webClientBuilder.build();
+            Object result = webClient
+                    .delete()
+                    .uri(chatbotServiceUrl + "/chat/sessions/" + sessionId)
+                    .retrieve()
+                    .bodyToMono(Object.class)
+                    .block();
+
+            ApiResponseDTO<Object> response = ApiResponseDTO.<Object>builder()
+                    .status("success")
+                    .message("Chat session deleted successfully")
+                    .data(result)
+                    .timestamp(Instant.now())
+                    .path(httpRequest.getRequestURI())
+                    .build();
+
+            return ResponseEntity.ok(response);
+
+        } catch (Exception e) {
+            log.error("Error deleting chat session", e);
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                    .body(ApiResponseDTO.<Object>builder()
+                            .status("error")
+                            .message("Error deleting chat session: " + e.getMessage())
+                            .timestamp(Instant.now())
+                            .path(httpRequest.getRequestURI())
+                            .build());
+        }
+    }
+
+    /**
      * Health check for chatbot service
      */
     @GetMapping("/health")
@@ -226,8 +384,33 @@ public class ChatbotProxyController {
      * Get current customer email from JWT token
      */
     private String getCurrentCustomerEmail() {
-        UserDetails userDetails = (UserDetails) SecurityContextHolder.getContext().getAuthentication().getPrincipal();
-        return userDetails.getUsername(); // This should be the email
+        try {
+            Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
+            if (authentication == null || !authentication.isAuthenticated()) {
+                log.error("No authentication found in security context");
+                throw new RuntimeException("User not authenticated");
+            }
+            
+            Object principal = authentication.getPrincipal();
+            log.info("Principal type: {}", principal.getClass().getName());
+            
+            if (principal instanceof UserDetails) {
+                UserDetails userDetails = (UserDetails) principal;
+                String email = userDetails.getUsername();
+                log.info("Extracted email from UserDetails: {}", email);
+                return email;
+            } else if (principal instanceof String) {
+                String email = (String) principal;
+                log.info("Extracted email from String principal: {}", email);
+                return email;
+            } else {
+                log.error("Unknown principal type: {}", principal.getClass().getName());
+                throw new RuntimeException("Unable to extract email from authentication principal");
+            }
+        } catch (Exception e) {
+            log.error("Error extracting customer email from security context", e);
+            throw e;
+        }
     }
 
     /**
