@@ -37,6 +37,10 @@ public class Customer {
     private User user;
 
     private String phoneNumber;
+    private String address;
+    private String city;
+    private String country;
+    private String postalCode;
 
     @OneToMany(mappedBy = "customer", cascade = CascadeType.ALL, orphanRemoval = true)
     @Builder.Default
