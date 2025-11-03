@@ -183,6 +183,50 @@ public class CustomerController {
         return ResponseEntity.ok(response);
     }
 
+    @PutMapping("/{id}/deactivate")
+    @RequiresRole(UserRole.ADMIN)
+    @Operation(summary = "Deactivate customer account", description = "Deactivates a customer account (soft delete)")
+    public ResponseEntity<ApiResponseDTO<Void>> deactivateCustomer(
+            @PathVariable Long id,
+            @RequestBody(required = false) java.util.Map<String, String> requestBody,
+            HttpServletRequest request) {
+
+        String reason = requestBody != null ? requestBody.get("reason") : null;
+        customerService.deactivateCustomer(id, reason);
+
+        ApiResponseDTO<Void> response = ApiResponseDTO.<Void>builder()
+                .status("success")
+                .message("Customer account deactivated successfully")
+                .data(null)
+                .timestamp(Instant.now())
+                .path(request.getRequestURI())
+                .build();
+
+        return ResponseEntity.ok(response);
+    }
+
+    @PutMapping("/{id}/reactivate")
+    @RequiresRole(UserRole.ADMIN)
+    @Operation(summary = "Reactivate customer account", description = "Reactivates a deactivated customer account")
+    public ResponseEntity<ApiResponseDTO<Void>> reactivateCustomer(
+            @PathVariable Long id,
+            HttpServletRequest request) {
+
+        customerService.reactivateCustomer(id);
+
+        ApiResponseDTO<Void> response = ApiResponseDTO.<Void>builder()
+                .status("success")
+                .message("Customer account reactivated successfully")
+                .data(null)
+                .timestamp(Instant.now())
+                .path(request.getRequestURI())
+                .build();
+
+        return ResponseEntity.ok(response);
+    }
+
 }
+
+
 
 
