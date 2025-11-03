@@ -45,6 +45,7 @@ public class CustomerService {
     private final UserRepository userRepository;
     private final CustomerMapper customerMapper;
     private final CurrentUserService currentUserService;
+    private final EmailService emailService;
 
     public List<CustomerResponseDTO> getAll() {
         return customerRepository.findAll().stream()
@@ -278,6 +279,46 @@ public class CustomerService {
         Customer customer = customerRepository.findByUserEmail(email)
                 .orElseThrow(() -> new CustomerNotFoundException("Customer not found with email: " + email));
         return customer.getCustomerId();
+    }
+
+    @Transactional
+    public void deactivateCustomer(Long customerId, String reason) {
+        Customer customer = customerRepository.findById(customerId)
+                .orElseThrow(() -> new CustomerNotFoundException("Customer not found with id: " + customerId));
+
+        User user = customer.getUser();
+        if (user == null) {
+            throw new IllegalStateException("Customer has no linked user account");
+        }
+
+        user.setIsActive(false);
+        userRepository.save(user);
+
+        // Send deactivation email
+        try {
+            emailService.sendCustomerDeactivationEmail(
+                user.getEmail(),
+                user.getName(),
+                reason != null && !reason.isEmpty() ? reason : "Administrative review or policy violation"
+            );
+        } catch (Exception e) {
+            // Log but don't fail the deactivation if email fails
+            System.err.println("Failed to send deactivation email: " + e.getMessage());
+        }
+    }
+
+    @Transactional
+    public void reactivateCustomer(Long customerId) {
+        Customer customer = customerRepository.findById(customerId)
+                .orElseThrow(() -> new CustomerNotFoundException("Customer not found with id: " + customerId));
+
+        User user = customer.getUser();
+        if (user == null) {
+            throw new IllegalStateException("Customer has no linked user account");
+        }
+
+        user.setIsActive(true);
+        userRepository.save(user);
     }
 
 }
