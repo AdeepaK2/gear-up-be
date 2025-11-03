@@ -108,6 +108,22 @@ public class CustomerService {
             customer.setPhoneNumber(dto.getPhoneNumber());
         }
 
+        if (dto.getAddress() != null) {
+            customer.setAddress(dto.getAddress());
+        }
+
+        if (dto.getCity() != null) {
+            customer.setCity(dto.getCity());
+        }
+
+        if (dto.getCountry() != null) {
+            customer.setCountry(dto.getCountry());
+        }
+
+        if (dto.getPostalCode() != null) {
+            customer.setPostalCode(dto.getPostalCode());
+        }
+
         return customerMapper.toDto(customerRepository.save(customer));
     }
 
