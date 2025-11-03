@@ -11,6 +11,8 @@ import io.swagger.v3.oas.models.Components;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.web.servlet.config.annotation.ViewControllerRegistry;
+import org.springframework.web.servlet.config.annotation.WebMvcConfigurer;
 
 import java.util.List;
 
@@ -74,5 +76,15 @@ public class SwaggerConfig {
                 .servers(List.of(devServer, prodServer))
                 .addSecurityItem(securityRequirement)
                 .components(new Components().addSecuritySchemes("bearerAuth", securityScheme));
+    }
+
+    @Bean
+    public WebMvcConfigurer webMvcConfigurer() {
+        return new WebMvcConfigurer() {
+            @Override
+            public void addViewControllers(ViewControllerRegistry registry) {
+                registry.addRedirectViewController("/swagger", "/swagger-ui.html");
+            }
+        };
     }
 }

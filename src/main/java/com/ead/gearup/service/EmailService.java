@@ -1,5 +1,6 @@
 package com.ead.gearup.service;
 
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.mail.javamail.JavaMailSender;
 import org.springframework.mail.javamail.MimeMessageHelper;
 import org.springframework.stereotype.Service;
@@ -12,15 +13,29 @@ import jakarta.mail.MessagingException;
 import jakarta.mail.internet.MimeMessage;
 
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 
 @Service
 @RequiredArgsConstructor
+@Slf4j
 public class EmailService {
 
     private final JavaMailSender mailSender;
     private final TemplateEngine templateEngine;
 
+    @Value("${app.email.verification.enabled:false}")
+    private boolean emailVerificationEnabled;
+
     public void sendVerificationEmail(String to, String name, String verificationUrl) {
+        // For development: Skip actual email sending if disabled
+        if (!emailVerificationEnabled) {
+            log.info("📧 Email verification DISABLED for development");
+            log.info("📧 Verification email would be sent to: {}", to);
+            log.info("📧 Verification URL: {}", verificationUrl);
+            log.info("📧 User '{}' can proceed without email verification", name);
+            return;
+        }
+
         try {
             String subject = "Verify Your Email";
 
@@ -40,14 +55,24 @@ public class EmailService {
             helper.setText(htmlContent, true);
 
             mailSender.send(message);
+            log.info("📧 Verification email sent successfully to: {}", to);
 
         } catch (MessagingException e) {
+            log.error("❌ Failed to send verification email to {}: {}", to, e.getMessage());
             throw new EmailSendingException("Failed to send verification email: " + e.getMessage(), e);
         }
     }
 
     public void sendEmployeeCredentials(String to, String name, String temporaryPassword, 
                                        String role, String specialization) {
+        // For development: Skip actual email sending if disabled
+        if (!emailVerificationEnabled) {
+            log.info("📧 Email sending DISABLED for development");
+            log.info("📧 Employee credentials email would be sent to: {}", to);
+            log.info("📧 Temporary password: {}", temporaryPassword);
+            return;
+        }
+
         try {
             String subject = "Welcome to Gear Up - Your Employee Account";
 
@@ -71,13 +96,23 @@ public class EmailService {
             helper.setText(htmlContent, true);
 
             mailSender.send(message);
+            log.info("📧 Employee credentials email sent successfully to: {}", to);
 
         } catch (MessagingException e) {
+            log.error("❌ Failed to send employee credentials email to {}: {}", to, e.getMessage());
             throw new EmailSendingException("Failed to send employee credentials email: " + e.getMessage(), e);
         }
     }
 
     public void sendEmployeePasswordReset(String to, String name, String temporaryPassword) {
+        // For development: Skip actual email sending if disabled
+        if (!emailVerificationEnabled) {
+            log.info("📧 Email sending DISABLED for development");
+            log.info("📧 Password reset email would be sent to: {}", to);
+            log.info("📧 Temporary password: {}", temporaryPassword);
+            return;
+        }
+
         try {
             String subject = "Your Temporary Password - Gear Up";
 
@@ -99,8 +134,10 @@ public class EmailService {
             helper.setText(htmlContent, true);
 
             mailSender.send(message);
+            log.info("📧 Password reset email sent successfully to: {}", to);
 
         } catch (MessagingException e) {
+            log.error("❌ Failed to send password reset email to {}: {}", to, e.getMessage());
             throw new EmailSendingException("Failed to send password reset email: " + e.getMessage(), e);
         }
     }

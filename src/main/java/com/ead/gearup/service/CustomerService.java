@@ -271,4 +271,13 @@ public class CustomerService {
                 .collect(Collectors.toList());
     }
 
+    /**
+     * Get customer ID by email (for chatbot integration)
+     */
+    public Long getCustomerIdByEmail(String email) {
+        Customer customer = customerRepository.findByUserEmail(email)
+                .orElseThrow(() -> new CustomerNotFoundException("Customer not found with email: " + email));
+        return customer.getCustomerId();
+    }
+
 }
