@@ -3,6 +3,7 @@ package com.ead.gearup.service;
 import com.ead.gearup.dto.CreateEmployeeRequest;
 import com.ead.gearup.dto.CreateEmployeeResponse;
 import com.ead.gearup.dto.EmployeeDTO;
+import com.ead.gearup.exception.EmailAlreadyExistsException;
 import com.ead.gearup.model.User;
 import com.ead.gearup.enums.UserRole;
 import com.ead.gearup.repository.UserRepository;
@@ -32,9 +33,9 @@ public class EmployeeManagementService {
 
     @Transactional
     public CreateEmployeeResponse createEmployee(CreateEmployeeRequest request) {
-        // Check if email already exists
+        // Check if email already exists in the system (any user with this email)
         if (userRepository.existsByEmail(request.getEmail())) {
-            throw new RuntimeException("Email already exists: " + request.getEmail());
+            throw new EmailAlreadyExistsException(request.getEmail());
         }
 
         // Generate temporary password

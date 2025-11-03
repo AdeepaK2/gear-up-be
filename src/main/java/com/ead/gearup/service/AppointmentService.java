@@ -3,14 +3,10 @@ package com.ead.gearup.service;
 import java.time.LocalDate;
 import java.time.LocalTime;
 import java.util.ArrayList;
-import java.time.LocalDate;
-import java.time.LocalTime;
-import java.util.ArrayList;
 import java.util.List;
 import java.util.stream.Collectors;
 
 import org.springframework.stereotype.Service;
-import org.springframework.transaction.annotation.Transactional;
 import org.springframework.transaction.annotation.Transactional;
 
 import com.ead.gearup.dto.appointment.AppointmentCreateDTO;
@@ -19,10 +15,10 @@ import com.ead.gearup.dto.appointment.AppointmentSearchResponseDTO;
 import com.ead.gearup.dto.appointment.AppointmentSearchResponseProjection;
 import com.ead.gearup.dto.appointment.AppointmentUpdateDTO;
 import com.ead.gearup.dto.employee.EmployeeAvailableSlotsDTO;
+import com.ead.gearup.enums.AppointmentStatus;
 import com.ead.gearup.enums.UserRole;
 import com.ead.gearup.exception.AppointmentNotFoundException;
 import com.ead.gearup.exception.CustomerNotFoundException;
-import com.ead.gearup.exception.UnauthorizedAppointmentAccessException;
 import com.ead.gearup.exception.UnauthorizedAppointmentAccessException;
 import com.ead.gearup.exception.VehicleNotFoundException;
 import com.ead.gearup.model.Appointment;
@@ -33,7 +29,6 @@ import com.ead.gearup.repository.CustomerRepository;
 import com.ead.gearup.repository.VehicleRepository;
 import com.ead.gearup.service.auth.CurrentUserService;
 import com.ead.gearup.util.AppointmentDTOConverter;
-import com.ead.gearup.validation.RequiresRole;
 import com.ead.gearup.validation.RequiresRole;
 
 import lombok.RequiredArgsConstructor;
