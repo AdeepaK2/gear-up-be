@@ -1,11 +1,13 @@
 package com.ead.gearup.controller;
 
 import java.time.Instant;
+import java.time.LocalDate;
 
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.crypto.password.PasswordEncoder;
+import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
@@ -17,8 +19,10 @@ import com.ead.gearup.dto.user.UserCreateDTO;
 import com.ead.gearup.dto.response.UserResponseDTO;
 import com.ead.gearup.enums.UserRole;
 import com.ead.gearup.model.Customer;
+import com.ead.gearup.model.Employee;
 import com.ead.gearup.model.User;
 import com.ead.gearup.repository.CustomerRepository;
+import com.ead.gearup.repository.EmployeeRepository;
 import com.ead.gearup.repository.UserRepository;
 
 import java.util.List;
@@ -46,6 +50,7 @@ public class AdminController {
 
     private final UserRepository userRepository;
     private final CustomerRepository customerRepository;
+    private final EmployeeRepository employeeRepository;
     private final PasswordEncoder passwordEncoder;
 
     @GetMapping("/check-init")
@@ -182,6 +187,84 @@ public class AdminController {
         return ResponseEntity.status(HttpStatus.CREATED).body(response);
     }
 
+    @PostMapping(value = "/employees", consumes = MediaType.APPLICATION_JSON_VALUE, produces = MediaType.APPLICATION_JSON_VALUE)
+    @Transactional
+    @Operation(
+        summary = "Create employee account (Admin only)",
+        description = "Creates a new employee user and employee record. This endpoint allows admins to create employee accounts directly."
+    )
+    @ApiResponses(value = {
+        @ApiResponse(
+            responseCode = "201",
+            description = "Employee created successfully",
+            content = @Content(
+                mediaType = "application/json",
+                schema = @Schema(implementation = ApiResponseDTO.class)
+            )
+        ),
+        @ApiResponse(
+            responseCode = "400",
+            description = "Invalid input or email already exists",
+            content = @Content(
+                mediaType = "application/json",
+                schema = @Schema(implementation = ApiResponseDTO.class)
+            )
+        )
+    })
+    public ResponseEntity<ApiResponseDTO<UserResponseDTO>> createEmployee(
+            @Parameter(description = "Employee creation data", required = true)
+            @Valid @RequestBody UserCreateDTO userCreateDTO,
+            HttpServletRequest request) {
+
+        // Check if email already exists
+        if (userRepository.findByEmail(userCreateDTO.getEmail()).isPresent()) {
+            ApiResponseDTO<UserResponseDTO> errorResponse = ApiResponseDTO.<UserResponseDTO>builder()
+                    .status("error") 
+                    .message("Email address already exists")
+                    .data(null)
+                    .timestamp(Instant.now())
+                    .path(request.getRequestURI())
+                    .build();
+            return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(errorResponse);
+        }
+
+        // Create user with EMPLOYEE role
+        User employee = User.builder()
+                .email(userCreateDTO.getEmail())
+                .name(userCreateDTO.getName())
+                .password(passwordEncoder.encode(userCreateDTO.getPassword()))
+                .role(UserRole.EMPLOYEE)
+                .isVerified(true) // Employees created by admin are pre-verified
+                .build();
+
+        User savedEmployee = userRepository.save(employee);
+
+        // Create Employee entity linked to the User
+        Employee employeeEntity = Employee.builder()
+                .user(savedEmployee)
+                .specialization("General") // Default specialization
+                .hireDate(LocalDate.now())
+                .build();
+
+        employeeRepository.save(employeeEntity);
+
+        // Create response
+        UserResponseDTO userResponse = new UserResponseDTO(
+                savedEmployee.getEmail(),
+                savedEmployee.getName()
+        );
+
+        ApiResponseDTO<UserResponseDTO> response = ApiResponseDTO.<UserResponseDTO>builder()
+                .status("success")
+                .message("Employee user and profile created successfully")
+                .data(userResponse)
+                .timestamp(Instant.now())
+                .path(request.getRequestURI())
+                .build();
+
+        return ResponseEntity.status(HttpStatus.CREATED).body(response);
+    }
+
     @PostMapping("/migrate-customers")
     @Operation(
         summary = "Migrate existing users to create missing Customer records",
@@ -218,6 +301,51 @@ public class AdminController {
                 .status("success")
                 .message("Migration completed. Created " + migratedCount + " Customer records.")
                 .data(new MigrationResponse(migratedCount, usersWithoutCustomer.size()))
+                .timestamp(Instant.now())
+                .path(request.getRequestURI())
+                .build();
+
+        return ResponseEntity.ok(response);
+    }
+
+    @PostMapping("/migrate-employees")
+    @Operation(
+        summary = "Migrate existing EMPLOYEE users to create missing Employee records",
+        description = "Creates Employee entities for all users with EMPLOYEE role who don't have an Employee record. This fixes the missing employee record issue."
+    )
+    @ApiResponses(value = {
+        @ApiResponse(
+            responseCode = "200",
+            description = "Migration completed successfully",
+            content = @Content(
+                mediaType = "application/json",
+                schema = @Schema(implementation = ApiResponseDTO.class)
+            )
+        )
+    })
+    @Transactional
+    public ResponseEntity<ApiResponseDTO<Object>> migrateEmployees(HttpServletRequest request) {
+        // Find all users with EMPLOYEE role who don't have an Employee entity
+        List<User> usersWithoutEmployee = userRepository.findAll().stream()
+                .filter(user -> user.getRole() == UserRole.EMPLOYEE)
+                .filter(user -> employeeRepository.findByUser(user).isEmpty())
+                .collect(Collectors.toList());
+
+        int migratedCount = 0;
+        for (User user : usersWithoutEmployee) {
+            Employee employee = Employee.builder()
+                    .user(user)
+                    .specialization("General") // Default specialization
+                    .hireDate(LocalDate.now()) // Default hire date to today
+                    .build();
+            employeeRepository.save(employee);
+            migratedCount++;
+        }
+
+        ApiResponseDTO<Object> response = ApiResponseDTO.builder()
+                .status("success")
+                .message("Employee migration completed. Created " + migratedCount + " Employee records.")
+                .data(new MigrationResponse(migratedCount, usersWithoutEmployee.size()))
                 .timestamp(Instant.now())
                 .path(request.getRequestURI())
                 .build();
