@@ -27,11 +27,10 @@ import java.util.List;
 public class CustomerController {
 
     private final CustomerService customerService;
-    // private final VehicleService vehicleService;
 
     @GetMapping
     @Operation(summary = "Get all customers")
-//     @RequiresRole({ UserRole.CUSTOMER, UserRole.ADMIN, UserRole.EMPLOYEE })
+    @RequiresRole({ UserRole.CUSTOMER, UserRole.ADMIN, UserRole.EMPLOYEE })
     public ResponseEntity<ApiResponseDTO<List<CustomerResponseDTO>>> getAll(HttpServletRequest request) {
         List<CustomerResponseDTO> customers = customerService.getAll();
 
@@ -45,10 +44,27 @@ public class CustomerController {
 
         return ResponseEntity.ok(response);
     }
+        
+    @GetMapping("/me")
+    @Operation(summary = "Get customer")
+    @RequiresRole({ UserRole.CUSTOMER, UserRole.ADMIN, UserRole.EMPLOYEE })
+    public ResponseEntity<ApiResponseDTO<CustomerResponseDTO>> getCustomer(HttpServletRequest request) {
+        CustomerResponseDTO customer = customerService.getCustomer();
+
+        ApiResponseDTO<CustomerResponseDTO> response = ApiResponseDTO.<CustomerResponseDTO>builder()
+                .status("success")
+                .message("Customer retrieved successfully")
+                .data(customer)
+                .timestamp(Instant.now())
+                .path(request.getRequestURI())
+                .build();
+
+        return ResponseEntity.ok(response);
+    }
 
     @GetMapping("/{id}")
     @Operation(summary = "Get customer by ID")
-//     @RequiresRole({ UserRole.CUSTOMER, UserRole.ADMIN, UserRole.EMPLOYEE })
+    @RequiresRole({ UserRole.CUSTOMER, UserRole.ADMIN, UserRole.EMPLOYEE })
     public ResponseEntity<ApiResponseDTO<CustomerResponseDTO>> getById(@PathVariable Long id,
             HttpServletRequest request) {
         CustomerResponseDTO customer = customerService.getById(id);
@@ -121,7 +137,7 @@ public class CustomerController {
         return ResponseEntity.ok(response);
     }
 
-    //Header/GetProfile
+    // Header/GetProfile
     @GetMapping("/{id}/header")
     @RequiresRole(UserRole.CUSTOMER)
     @Operation(summary = "Get customer header info (name & profile image)")
@@ -142,27 +158,29 @@ public class CustomerController {
         return ResponseEntity.ok(response);
     }
 
-      //Header/Get Notification
-//    @GetMapping("/{id}/notifications")
-//    @Operation(summary = "Get notifications for a customer")
-//    public ResponseEntity<ApiResponseDTO<List<NotificationDTO>>> getNotifications(
-//            @PathVariable Long id,
-//            HttpServletRequest request) {
-//
-//        List<NotificationDTO> notifications = customerService.getNotifications(id);
-//
-//        ApiResponseDTO<List<NotificationDTO>> response = ApiResponseDTO.<List<NotificationDTO>>builder()
-//                .status("success")
-//                .message("Customer notifications retrieved successfully")
-//                .data(notifications)
-//                .timestamp(Instant.now())
-//                .path(request.getRequestURI())
-//                .build();
-//
-//        return ResponseEntity.ok(response);
-//    }
+    // Header/Get Notification
+    // @GetMapping("/{id}/notifications")
+    // @Operation(summary = "Get notifications for a customer")
+    // public ResponseEntity<ApiResponseDTO<List<NotificationDTO>>>
+    // getNotifications(
+    // @PathVariable Long id,
+    // HttpServletRequest request) {
+    //
+    // List<NotificationDTO> notifications = customerService.getNotifications(id);
+    //
+    // ApiResponseDTO<List<NotificationDTO>> response =
+    // ApiResponseDTO.<List<NotificationDTO>>builder()
+    // .status("success")
+    // .message("Customer notifications retrieved successfully")
+    // .data(notifications)
+    // .timestamp(Instant.now())
+    // .path(request.getRequestURI())
+    // .build();
+    //
+    // return ResponseEntity.ok(response);
+    // }
 
-    //Customer Dashboard
+    // Customer Dashboard
     @GetMapping("/{id}/dashboard")
     @RequiresRole(UserRole.CUSTOMER)
     @Operation(summary = "Get full customer dashboard details")
@@ -226,7 +244,3 @@ public class CustomerController {
     }
 
 }
-
-
-
-
