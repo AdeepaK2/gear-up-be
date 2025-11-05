@@ -28,4 +28,12 @@ public interface ProjectRepository extends JpaRepository<Project, Long> {
 
     boolean existsByAppointmentAppointmentId(Long appointmentId);
 
+    @Query("SELECT p FROM Project p " +
+           "LEFT JOIN FETCH p.customer c " +
+           "LEFT JOIN FETCH c.user " +
+           "LEFT JOIN FETCH p.vehicle " +
+           "LEFT JOIN FETCH p.appointment " +
+           "WHERE c.customerId = :customerId")
+    List<Project> findAllByCustomerIdWithDetails(@Param("customerId") Long customerId);
+
 }

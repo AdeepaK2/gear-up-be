@@ -50,23 +50,52 @@ public class ProjectDTOConverter {
         dto.setEndDate(project.getEndDate());
         dto.setStatus(project.getStatus());
 
-        if(project.getAppointment() != null){
-            dto.setAppointmentId(project.getAppointment().getAppointmentId());
-        }
-        if(project.getVehicle() != null){
-            dto.setVehicleId(project.getVehicle().getVehicleId());
-        }
-        if(project.getCustomer() != null){
-            dto.setCustomerId(project.getCustomer().getCustomerId());
-
-            if (project.getCustomer().getUser() != null) {
-                dto.setCustomerName(project.getCustomer().getUser().getName());
+        try {
+            if(project.getAppointment() != null){
+                dto.setAppointmentId(project.getAppointment().getAppointmentId());
             }
+        } catch (Exception e) {
+            System.err.println("Error accessing appointment: " + e.getMessage());
         }
-        if (project.getTasks() != null) {
-            dto.setTaskIds(project.getTasks().stream()
-                    .map(Task::getTaskId)
-                    .toList());
+
+        try {
+            if(project.getVehicle() != null){
+                dto.setVehicleId(project.getVehicle().getVehicleId());
+            }
+        } catch (Exception e) {
+            System.err.println("Error accessing vehicle: " + e.getMessage());
+        }
+
+        try {
+            if(project.getCustomer() != null){
+                dto.setCustomerId(project.getCustomer().getCustomerId());
+
+                try {
+                    if (project.getCustomer().getUser() != null) {
+                        dto.setCustomerName(project.getCustomer().getUser().getName());
+                    }
+                } catch (Exception e) {
+                    System.err.println("Error accessing customer user: " + e.getMessage());
+                    dto.setCustomerName("Unknown");
+                }
+            }
+        } catch (Exception e) {
+            System.err.println("Error accessing customer: " + e.getMessage());
+        }
+
+        try {
+            if (project.getTasks() != null) {
+                List<Long> taskIds = project.getTasks().stream()
+                        .map(Task::getTaskId)
+                        .toList();
+                System.out.println("Converting project " + project.getProjectId() + " with " + taskIds.size() + " tasks: " + taskIds);
+                dto.setTaskIds(taskIds);
+            } else {
+                System.out.println("Project " + project.getProjectId() + " has null tasks collection");
+            }
+        } catch (Exception e) {
+            System.err.println("Error accessing tasks for project " + project.getProjectId() + ": " + e.getMessage());
+            e.printStackTrace();
         }
 
         return dto;
