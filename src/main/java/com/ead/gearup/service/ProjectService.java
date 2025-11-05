@@ -45,11 +45,20 @@ public class ProjectService {
     private final TaskDTOConverter taskDTOConverter;
 
 
+    @Transactional
     @RequiresRole({UserRole.CUSTOMER, UserRole.EMPLOYEE, UserRole.ADMIN})
     public ProjectResponseDTO createProject(CreateProjectDTO dto) {
         Appointment appointment = appointmentRepository.findById(dto.getAppointmentId())
                 .orElseThrow(() -> new AppointmentNotFoundException(
                         "Appointment not found: " + dto.getAppointmentId()));
+
+        // Check if a project already exists for this appointment
+        if (projectRepository.existsByAppointmentAppointmentId(dto.getAppointmentId())) {
+            // Return the existing project instead of creating a duplicate
+            Project existingProject = projectRepository.findByAppointmentAppointmentId(dto.getAppointmentId())
+                    .orElseThrow(() -> new ProjectNotFoundException("Project exists but could not be retrieved"));
+            return projectDTOConverter.convertToResponseDto(existingProject);
+        }
 
         // Verify that the customer creating the project owns the appointment
         UserRole role = currentUserService.getCurrentUserRole();
@@ -70,11 +79,23 @@ public class ProjectService {
             throw new TaskNotFoundException("No valid tasks found for project");
         }
 
+        // Eagerly initialize customer to avoid lazy loading issues
+        Customer customer = appointment.getCustomer();
+        // Access customer ID to initialize the proxy
+        customer.getCustomerId();
+
         Project project = projectDTOConverter.convertToEntity(dto);
         project.setAppointment(appointment);
         project.setVehicle(vehicle);
-        project.setCustomer(appointment.getCustomer());
-        project.setStatus(ProjectStatus.CREATED);
+        project.setCustomer(customer);
+
+        // Initialize all default values explicitly
+        project.setAcceptedServicesCount(0);
+        project.setTotalEstimatedCost(0.0);
+        project.setTotalAcceptedCost(0.0);
+
+        // Try not setting status at all - let it be null or use database default
+        // project.setStatus(ProjectStatus.CONFIRMED);
 
         // Save project first to get an ID
         Project savedProject = projectRepository.save(project);

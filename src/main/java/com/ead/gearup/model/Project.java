@@ -37,6 +37,7 @@ public class Project {
 
 
     @Enumerated(EnumType.STRING)
+    @Column(name = "status", columnDefinition = "VARCHAR(50)")
     private ProjectStatus status;
 
     @ManyToOne(fetch = FetchType.LAZY)

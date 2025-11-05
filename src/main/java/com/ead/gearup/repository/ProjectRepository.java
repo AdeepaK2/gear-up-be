@@ -24,4 +24,8 @@ public interface ProjectRepository extends JpaRepository<Project, Long> {
 
     Optional<Project> findByProjectIdAndAssignedEmployeesEmployeeId(Long projectId, Long employeeId);
 
+    Optional<Project> findByAppointmentAppointmentId(Long appointmentId);
+
+    boolean existsByAppointmentAppointmentId(Long appointmentId);
+
 }
