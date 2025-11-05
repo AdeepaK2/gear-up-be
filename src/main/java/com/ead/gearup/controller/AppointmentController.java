@@ -55,32 +55,14 @@ public class AppointmentController {
 
     // @RequiresRole({ UserRole.CUSTOMER })
     @PostMapping(consumes = MediaType.APPLICATION_JSON_VALUE, produces = MediaType.APPLICATION_JSON_VALUE)
-    @Operation(
-        summary = "Create a new appointment",
-        description = "Creates a new service appointment for a customer's vehicle"
-    )
+    @Operation(summary = "Create a new appointment", description = "Creates a new service appointment for a customer's vehicle")
     @ApiResponses(value = {
-        @ApiResponse(
-            responseCode = "201",
-            description = "Appointment created successfully",
-            content = @Content(
-                mediaType = "application/json",
-                schema = @Schema(implementation = ApiResponseDTO.class)
-            )
-        ),
-        @ApiResponse(
-            responseCode = "400",
-            description = "Invalid appointment data",
-            content = @Content(
-                mediaType = "application/json",
-                schema = @Schema(implementation = ApiResponseDTO.class)
-            )
-        )
+            @ApiResponse(responseCode = "201", description = "Appointment created successfully", content = @Content(mediaType = "application/json", schema = @Schema(implementation = ApiResponseDTO.class))),
+            @ApiResponse(responseCode = "400", description = "Invalid appointment data", content = @Content(mediaType = "application/json", schema = @Schema(implementation = ApiResponseDTO.class)))
     })
     public ResponseEntity<ApiResponseDTO<AppointmentResponseDTO>> createAppointment(
-            @RequestBody @Valid 
-            @Parameter(description = "Appointment details", required = true)
-            AppointmentCreateDTO appointmentCreateDTO, HttpServletRequest request) {
+            @RequestBody @Valid @Parameter(description = "Appointment details", required = true) AppointmentCreateDTO appointmentCreateDTO,
+            HttpServletRequest request) {
         AppointmentResponseDTO appointmentResponseDTO = appointmentService.createAppointment(appointmentCreateDTO);
 
         ApiResponseDTO<AppointmentResponseDTO> response = ApiResponseDTO.<AppointmentResponseDTO>builder()
@@ -93,14 +75,26 @@ public class AppointmentController {
 
         return ResponseEntity.status(HttpStatus.CREATED).body(response);
     }
-    
 
     @GetMapping
-    @Operation(
-        summary = "Get all appointments for current customer",
-        description = "Retrieves all appointments for the authenticated customer"
-    )
+    @Operation(summary = "Get all appointments", description = "Retrieves all appointments")
     public ResponseEntity<ApiResponseDTO<List<AppointmentResponseDTO>>> getAllAppointments(HttpServletRequest request) {
+        List<AppointmentResponseDTO> appointments = appointmentService.getAllAppointments();
+
+        ApiResponseDTO<List<AppointmentResponseDTO>> response = ApiResponseDTO.<List<AppointmentResponseDTO>>builder()
+                .status("success")
+                .message("Appointments retrieved successfully")
+                .data(appointments)
+                .timestamp(Instant.now())
+                .path(request.getRequestURI())
+                .build();
+
+        return ResponseEntity.ok(response);
+    }
+
+    @GetMapping("/customer")
+    @Operation(summary = "Get all appointments for current customer", description = "Retrieves all appointments for the authenticated customer")
+    public ResponseEntity<ApiResponseDTO<List<AppointmentResponseDTO>>> getAllAppointmentsForCurrentCustomer(HttpServletRequest request) {
         List<AppointmentResponseDTO> appointments = appointmentService.getAllAppointmentsForCurrentCustomer();
 
         ApiResponseDTO<List<AppointmentResponseDTO>> response = ApiResponseDTO.<List<AppointmentResponseDTO>>builder()
@@ -115,11 +109,9 @@ public class AppointmentController {
     }
 
     @GetMapping("/{id}")
-    @Operation(
-        summary = "Get appointment by ID",
-        description = "Retrieves a specific appointment by its ID"
-    )
-    public ResponseEntity<ApiResponseDTO<AppointmentResponseDTO>> getAppointmentById(@PathVariable Long id, HttpServletRequest request) {
+    @Operation(summary = "Get appointment by ID", description = "Retrieves a specific appointment by its ID")
+    public ResponseEntity<ApiResponseDTO<AppointmentResponseDTO>> getAppointmentById(@PathVariable Long id,
+            HttpServletRequest request) {
         AppointmentResponseDTO appointment = appointmentService.getAppointmentById(id);
 
         ApiResponseDTO<AppointmentResponseDTO> response = ApiResponseDTO.<AppointmentResponseDTO>builder()
@@ -151,10 +143,7 @@ public class AppointmentController {
     }
 
     @DeleteMapping("/{id}")
-    @Operation(
-        summary = "Delete appointment",
-        description = "Deletes an appointment by its ID"
-    )
+    @Operation(summary = "Delete appointment", description = "Deletes an appointment by its ID")
     public ResponseEntity<ApiResponseDTO<Void>> deleteAppointment(@PathVariable Long id, HttpServletRequest request) {
         appointmentService.deleteAppointment(id);
 
@@ -173,10 +162,7 @@ public class AppointmentController {
      * Get appointments by customer ID (for chatbot integration)
      */
     @GetMapping("/customer/{customerId}")
-    @Operation(
-        summary = "Get appointments by customer ID",
-        description = "Retrieves all appointments for a specific customer (for chatbot/admin use)"
-    )
+    @Operation(summary = "Get appointments by customer ID", description = "Retrieves all appointments for a specific customer (for chatbot/admin use)")
     public ResponseEntity<ApiResponseDTO<List<AppointmentResponseDTO>>> getAppointmentsByCustomerId(
             @PathVariable Long customerId, HttpServletRequest request) {
         List<AppointmentResponseDTO> appointments = appointmentService.getAppointmentsByCustomerId(customerId);
@@ -196,10 +182,7 @@ public class AppointmentController {
      * Get available appointments by customer ID (PENDING status only)
      */
     @GetMapping("/customer/{customerId}/available")
-    @Operation(
-        summary = "Get available appointments by customer ID",
-        description = "Retrieves available (PENDING) appointments for a specific customer"
-    )
+    @Operation(summary = "Get available appointments by customer ID", description = "Retrieves available (PENDING) appointments for a specific customer")
     public ResponseEntity<ApiResponseDTO<List<AppointmentResponseDTO>>> getAvailableAppointmentsByCustomerId(
             @PathVariable Long customerId, HttpServletRequest request) {
         List<AppointmentResponseDTO> appointments = appointmentService.getAvailableAppointmentsByCustomerId(customerId);
@@ -219,10 +202,7 @@ public class AppointmentController {
      * Get upcoming appointments by customer ID (future dates only)
      */
     @GetMapping("/customer/{customerId}/upcoming")
-    @Operation(
-        summary = "Get upcoming appointments by customer ID",
-        description = "Retrieves upcoming appointments for a specific customer"
-    )
+    @Operation(summary = "Get upcoming appointments by customer ID", description = "Retrieves upcoming appointments for a specific customer")
     public ResponseEntity<ApiResponseDTO<List<AppointmentResponseDTO>>> getUpcomingAppointmentsByCustomerId(
             @PathVariable Long customerId, HttpServletRequest request) {
         List<AppointmentResponseDTO> appointments = appointmentService.getUpcomingAppointmentsByCustomerId(customerId);
@@ -240,7 +220,8 @@ public class AppointmentController {
 
     // Dashboard - employee's appointments list
     @GetMapping("/employee")
-    public ResponseEntity<ApiResponseDTO<List<AppointmentResponseDTO>>> getAppointmentsForEmployee (HttpServletRequest request) {
+    public ResponseEntity<ApiResponseDTO<List<AppointmentResponseDTO>>> getAppointmentsForEmployee(
+            HttpServletRequest request) {
         List<AppointmentResponseDTO> appointments = appointmentService.getAppointmentsForEmployee();
 
         ApiResponseDTO<List<AppointmentResponseDTO>> response = ApiResponseDTO.<List<AppointmentResponseDTO>>builder()
@@ -274,65 +255,68 @@ public class AppointmentController {
 
     @GetMapping("/filter-by-date")
     public ResponseEntity<ApiResponseDTO<List<AppointmentResponseDTO>>> getAppointmentsByDate(
-        @RequestParam("date") @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate date, HttpServletRequest request) {
-            Long employeeId = currentUserService.getCurrentEntityId();
+            @RequestParam("date") @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate date,
+            HttpServletRequest request) {
+        Long employeeId = currentUserService.getCurrentEntityId();
 
-            List<AppointmentResponseDTO> appointments = appointmentService.getAppointmentsByDate(employeeId, date);
+        List<AppointmentResponseDTO> appointments = appointmentService.getAppointmentsByDate(employeeId, date);
 
-            ApiResponseDTO<List<AppointmentResponseDTO>> response = ApiResponseDTO.<List<AppointmentResponseDTO>>builder()
-                    .status("success")
-                    .message("Appointments for the date retrieved successfully")
-                    .data(appointments)
-                    .timestamp(Instant.now())
-                    .path(request.getRequestURI())
-                    .build();
+        ApiResponseDTO<List<AppointmentResponseDTO>> response = ApiResponseDTO.<List<AppointmentResponseDTO>>builder()
+                .status("success")
+                .message("Appointments for the date retrieved successfully")
+                .data(appointments)
+                .timestamp(Instant.now())
+                .path(request.getRequestURI())
+                .build();
 
-            return ResponseEntity.ok(response);
+        return ResponseEntity.ok(response);
     }
 
     @GetMapping("/by-month")
     public ResponseEntity<ApiResponseDTO<List<AppointmentResponseDTO>>> getAppointmentsByMonthAndStatuses(
-        @RequestParam int year,
-        @RequestParam int month,
-        @RequestParam(required = false) List<AppointmentStatus> statuses,
-        HttpServletRequest request) {
+            @RequestParam int year,
+            @RequestParam int month,
+            @RequestParam(required = false) List<AppointmentStatus> statuses,
+            HttpServletRequest request) {
 
-            if (statuses == null || statuses.isEmpty()) {
-                statuses = List.of(AppointmentStatus.PENDING, AppointmentStatus.IN_PROGRESS, AppointmentStatus.COMPLETED);
-            }
-
-            List<AppointmentResponseDTO> appointments = appointmentService.getAppointmentsByMonthANDStatuses(year, month, statuses);
-
-            ApiResponseDTO<List<AppointmentResponseDTO>> response = ApiResponseDTO.<List<AppointmentResponseDTO>>builder()
-                    .status("success")
-                    .message("Appointments for the month retrieved successfully")
-                    .data(appointments)
-                    .timestamp(Instant.now())
-                    .path(request.getRequestURI())
-                    .build();
-            return ResponseEntity.ok(response);
+        if (statuses == null || statuses.isEmpty()) {
+            statuses = List.of(AppointmentStatus.PENDING, AppointmentStatus.IN_PROGRESS, AppointmentStatus.COMPLETED);
         }
+
+        List<AppointmentResponseDTO> appointments = appointmentService.getAppointmentsByMonthANDStatuses(year, month,
+                statuses);
+
+        ApiResponseDTO<List<AppointmentResponseDTO>> response = ApiResponseDTO.<List<AppointmentResponseDTO>>builder()
+                .status("success")
+                .message("Appointments for the month retrieved successfully")
+                .data(appointments)
+                .timestamp(Instant.now())
+                .path(request.getRequestURI())
+                .build();
+        return ResponseEntity.ok(response);
+    }
 
     @GetMapping("/search")
     public ResponseEntity<ApiResponseDTO<List<AppointmentResponseDTO>>> searchAppointments(
-        @RequestParam("keyword") String keyword,
-        HttpServletRequest request) {
+            @RequestParam("keyword") String keyword,
+            HttpServletRequest request) {
 
-            List<AppointmentResponseDTO> results = appointmentService.searchAppointments(keyword);
+        List<AppointmentResponseDTO> results = appointmentService.searchAppointments(keyword);
 
-            ApiResponseDTO<List<AppointmentResponseDTO>> response = ApiResponseDTO.<List<AppointmentResponseDTO>>builder()
-                    .status("success")
-                    .message("Search results retrieved successfully")
-                    .data(results)
-                    .timestamp(Instant.now())
-                    .path(request.getRequestURI())
-                    .build();
-            return ResponseEntity.ok(response);
-        }
+        ApiResponseDTO<List<AppointmentResponseDTO>> response = ApiResponseDTO.<List<AppointmentResponseDTO>>builder()
+                .status("success")
+                .message("Search results retrieved successfully")
+                .data(results)
+                .timestamp(Instant.now())
+                .path(request.getRequestURI())
+                .build();
+        return ResponseEntity.ok(response);
+    }
 
     // Employee's upcoming appointments
     @GetMapping("/employee/upcoming")
-    public ResponseEntity<ApiResponseDTO<List<AppointmentResponseDTO>>> getUpcomingAppointmentsForEmployee(HttpServletRequest request) {
+    public ResponseEntity<ApiResponseDTO<List<AppointmentResponseDTO>>> getUpcomingAppointmentsForEmployee(
+            HttpServletRequest request) {
         List<AppointmentResponseDTO> appointments = appointmentService.getUpcomingAppointmentsForEmployee();
         ApiResponseDTO<List<AppointmentResponseDTO>> response = ApiResponseDTO.<List<AppointmentResponseDTO>>builder()
                 .status("success")
@@ -346,17 +330,18 @@ public class AppointmentController {
 
     @GetMapping("/employee/available-slots")
     public ResponseEntity<ApiResponseDTO<List<EmployeeAvailableSlotsDTO>>> getEmployeeAvailableSlots(
-        @RequestParam("date") LocalDate date,
-        HttpServletRequest request) {
-            List<EmployeeAvailableSlotsDTO> slots = appointmentService.getAvailableSlotsForEmployee(date);
-            ApiResponseDTO<List<EmployeeAvailableSlotsDTO>> response = ApiResponseDTO.<List<EmployeeAvailableSlotsDTO>>builder()
-                    .status("success")
-                    .message("Available slots retrieved successfully")
-                    .data(slots)
-                    .timestamp(Instant.now())
-                    .path(request.getRequestURI())
-                    .build();
-            return ResponseEntity.ok(response);    
+            @RequestParam("date") LocalDate date,
+            HttpServletRequest request) {
+        List<EmployeeAvailableSlotsDTO> slots = appointmentService.getAvailableSlotsForEmployee(date);
+        ApiResponseDTO<List<EmployeeAvailableSlotsDTO>> response = ApiResponseDTO
+                .<List<EmployeeAvailableSlotsDTO>>builder()
+                .status("success")
+                .message("Available slots retrieved successfully")
+                .data(slots)
+                .timestamp(Instant.now())
+                .path(request.getRequestURI())
+                .build();
+        return ResponseEntity.ok(response);
 
     }
 }
