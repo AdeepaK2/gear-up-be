@@ -134,7 +134,8 @@ public class SecurityConfig {
                 "http://135.171.192.76",              // k8s deployment
                 "http://localhost:80",                // local docker
                 "http://192.168.49.2:31660",          // minikube frontend NodePort
-                "http://gearup.local"                 // ingress host
+                "http://gearup.local",                // ingress host
+                "http://34.42.2.114"                  // GKE frontend external IP
         ));
         config.setAllowedHeaders(List.of("*")); // Allow all headers
         config.setAllowedMethods(List.of("GET", "POST", "PUT", "DELETE", "PATCH", "OPTIONS"));
