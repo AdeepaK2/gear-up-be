@@ -45,12 +45,16 @@ public class TaskService {
     @RequiresRole({ UserRole.EMPLOYEE, UserRole.ADMIN })
     public TaskResponseDTO createTask(TaskCreateDTO taskCreateDTO) {
 
-        Appointment appointment = appointmentRepository.findById(taskCreateDTO.getAppointmentId())
-                .orElseThrow(() -> new AppointmentNotFoundException(
-                        "Appointment not found" + taskCreateDTO.getAppointmentId()));
-
         Task task = taskDTOConverter.convertToEntity(taskCreateDTO);
-        task.setAppointment(appointment);
+
+        // Only set appointment if appointmentId is provided
+        if (taskCreateDTO.getAppointmentId() != null) {
+            Appointment appointment = appointmentRepository.findById(taskCreateDTO.getAppointmentId())
+                    .orElseThrow(() -> new AppointmentNotFoundException(
+                            "Appointment not found: " + taskCreateDTO.getAppointmentId()));
+            task.setAppointment(appointment);
+        }
+
         taskRepository.save(task);
 
         return taskDTOConverter.convertToResponseDto(task);

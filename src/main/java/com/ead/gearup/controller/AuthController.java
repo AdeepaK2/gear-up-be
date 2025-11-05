@@ -14,7 +14,9 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
+import com.ead.gearup.dto.request.ForgotPasswordRequestDTO;
 import com.ead.gearup.dto.request.ResendEmailRequestDTO;
+import com.ead.gearup.dto.request.ResetPasswordRequestDTO;
 import com.ead.gearup.dto.response.ApiResponseDTO;
 import com.ead.gearup.dto.response.JwtTokensDTO;
 import com.ead.gearup.dto.response.LoginResponseDTO;
@@ -282,5 +284,51 @@ public class AuthController {
                 .build();
 
         return ResponseEntity.ok(apiResponse);
+    }
+
+    @PostMapping("/forgot-password")
+    @Operation(summary = "Request password reset", description = "Sends a password reset link to the user's email address")
+    @ApiResponses(value = {
+            @ApiResponse(responseCode = "200", description = "Password reset email sent successfully", content = @Content(mediaType = "application/json", schema = @Schema(implementation = ApiResponseDTO.class))),
+            @ApiResponse(responseCode = "404", description = "User not found", content = @Content(mediaType = "application/json", schema = @Schema(implementation = ApiResponseDTO.class)))
+    })
+    public ResponseEntity<ApiResponseDTO<Object>> forgotPassword(
+            @Valid @RequestBody @Parameter(description = "Email address for password reset", required = true) ForgotPasswordRequestDTO request,
+            HttpServletRequest httpRequest) {
+
+        authService.forgotPassword(request);
+
+        ApiResponseDTO<Object> response = ApiResponseDTO.builder()
+                .status("success")
+                .message("Password reset link has been sent to your email")
+                .timestamp(Instant.now())
+                .path(httpRequest.getRequestURI())
+                .data(null)
+                .build();
+
+        return ResponseEntity.ok(response);
+    }
+
+    @PostMapping("/reset-password")
+    @Operation(summary = "Reset password", description = "Resets user password using the token from email")
+    @ApiResponses(value = {
+            @ApiResponse(responseCode = "200", description = "Password reset successfully", content = @Content(mediaType = "application/json", schema = @Schema(implementation = ApiResponseDTO.class))),
+            @ApiResponse(responseCode = "400", description = "Invalid or expired token", content = @Content(mediaType = "application/json", schema = @Schema(implementation = ApiResponseDTO.class)))
+    })
+    public ResponseEntity<ApiResponseDTO<Object>> resetPassword(
+            @Valid @RequestBody @Parameter(description = "Password reset details", required = true) ResetPasswordRequestDTO request,
+            HttpServletRequest httpRequest) {
+
+        authService.resetPassword(request);
+
+        ApiResponseDTO<Object> response = ApiResponseDTO.builder()
+                .status("success")
+                .message("Password has been reset successfully")
+                .timestamp(Instant.now())
+                .path(httpRequest.getRequestURI())
+                .data(null)
+                .build();
+
+        return ResponseEntity.ok(response);
     }
 }

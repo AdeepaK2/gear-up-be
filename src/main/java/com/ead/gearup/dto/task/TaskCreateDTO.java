@@ -13,6 +13,7 @@ public class TaskCreateDTO {
     private Integer estimatedHours;
     private Double estimatedCost;
     private Long appointmentId;
+    private Long employeeId;  // Optional - can be assigned later
     private String category;
     private String priority;
     private String notes;

@@ -3,8 +3,10 @@ package com.ead.gearup.util;
 import com.ead.gearup.dto.task.TaskCreateDTO;
 import com.ead.gearup.dto.task.TaskResponseDTO;
 import com.ead.gearup.dto.task.TaskUpdateDTO;
+import com.ead.gearup.exception.EmployeeNotFoundException;
 import com.ead.gearup.model.Task;
 import com.ead.gearup.repository.AppointmentRepository;
+import com.ead.gearup.repository.EmployeeRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Component;
 
@@ -13,6 +15,7 @@ import org.springframework.stereotype.Component;
 public class TaskDTOConverter {
 
     private final AppointmentRepository appointmentRepository;
+    private final EmployeeRepository employeeRepository;
 
     // Convert TaskCreateDTO to Task entity
     public Task convertToEntity(TaskCreateDTO dto) {
@@ -20,12 +23,26 @@ public class TaskDTOConverter {
 
         task.setName(dto.getName());
         task.setDescription(dto.getDescription());
-        task.setEstimatedHours(dto.getEstimatedHours());
-        task.setEstimatedCost(dto.getEstimatedCost());
-        task.setAppointment(appointmentRepository.findById(dto.getAppointmentId())
-                .orElseThrow(() -> {
-                    throw new IllegalArgumentException("Invalid appointment ID: " + dto.getAppointmentId());
-                }));
+        task.setEstimatedHours(dto.getEstimatedHours() != null ? dto.getEstimatedHours() : 0);
+
+        // Set both cost fields to the same value (database has both columns)
+        Double costValue = dto.getEstimatedCost() != null ? dto.getEstimatedCost() : 0.0;
+        task.setEstimatedCost(costValue);
+        task.setCost(costValue);
+
+        task.setCategory(dto.getCategory());
+        task.setPriority(dto.getPriority());
+        task.setNotes(dto.getNotes() != null ? dto.getNotes() : "");
+        task.setRequestedBy(dto.getRequestedBy() != null ? dto.getRequestedBy() : "Admin");
+
+        // Set employee (optional - can be assigned later)
+        if (dto.getEmployeeId() != null) {
+            task.setEmployee(employeeRepository.findById(dto.getEmployeeId())
+                    .orElseThrow(() -> new EmployeeNotFoundException(
+                            "Employee not found with ID: " + dto.getEmployeeId())));
+        }
+
+        // Appointment is optional - don't set it here, let the service handle it
 
         return task;
     }
