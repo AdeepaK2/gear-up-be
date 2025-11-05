@@ -47,18 +47,9 @@ public class VehicleController {
 
     @RequiresRole({ UserRole.CUSTOMER })
     @PostMapping(consumes = MediaType.APPLICATION_JSON_VALUE, produces = MediaType.APPLICATION_JSON_VALUE)
-    @Operation(
-        summary = "Create a new vehicle",
-        description = "Creates a new vehicle record for a customer. Requires CUSTOMER role."
-    )
+    @Operation(summary = "Create a new vehicle", description = "Creates a new vehicle record for a customer. Requires CUSTOMER role.")
     @ApiResponses(value = {
-        @ApiResponse(
-            responseCode = "201",
-            description = "Vehicle created successfully",
-            content = @Content(
-                mediaType = "application/json",
-                schema = @Schema(implementation = ApiResponseDTO.class),
-                examples = @ExampleObject(value = """
+            @ApiResponse(responseCode = "201", description = "Vehicle created successfully", content = @Content(mediaType = "application/json", schema = @Schema(implementation = ApiResponseDTO.class), examples = @ExampleObject(value = """
                     {
                         "status": "success",
                         "message": "Vehicle created successfully",
@@ -75,30 +66,13 @@ public class VehicleController {
                         "timestamp": "2023-10-15T10:30:00Z",
                         "path": "/api/v1/vehicles"
                     }
-                    """)
-            )
-        ),
-        @ApiResponse(
-            responseCode = "400",
-            description = "Invalid vehicle data",
-            content = @Content(
-                mediaType = "application/json",
-                schema = @Schema(implementation = ApiResponseDTO.class)
-            )
-        ),
-        @ApiResponse(
-            responseCode = "401",
-            description = "Unauthorized - Invalid JWT token",
-            content = @Content(
-                mediaType = "application/json",
-                schema = @Schema(implementation = ApiResponseDTO.class)
-            )
-        )
+                    """))),
+            @ApiResponse(responseCode = "400", description = "Invalid vehicle data", content = @Content(mediaType = "application/json", schema = @Schema(implementation = ApiResponseDTO.class))),
+            @ApiResponse(responseCode = "401", description = "Unauthorized - Invalid JWT token", content = @Content(mediaType = "application/json", schema = @Schema(implementation = ApiResponseDTO.class)))
     })
     public ResponseEntity<ApiResponseDTO<VehicleResponseDTO>> createVehicle(
-            @Valid @RequestBody 
-            @Parameter(description = "Vehicle details to create", required = true)
-            VehicleCreateDTO vehicleCreateDTO, HttpServletRequest request) {
+            @Valid @RequestBody @Parameter(description = "Vehicle details to create", required = true) VehicleCreateDTO vehicleCreateDTO,
+            HttpServletRequest request) {
 
         VehicleResponseDTO createdVehicle = vehicleService.createVehicle(vehicleCreateDTO);
 
@@ -179,6 +153,24 @@ public class VehicleController {
                 .timestamp(Instant.now())
                 .path(request.getRequestURI())
                 .data(updatedVehicle)
+                .build();
+
+        return ResponseEntity.ok(response);
+    }
+
+    @RequiresRole({ UserRole.CUSTOMER })
+    @GetMapping("/my-vehicles")
+    public ResponseEntity<ApiResponseDTO<List<VehicleResponseDTO>>> getVehiclesForCurrentCustomer(
+            HttpServletRequest request) {
+
+        List<VehicleResponseDTO> vehicles = vehicleService.getVehiclesForCurrentCustomer();
+
+        ApiResponseDTO<List<VehicleResponseDTO>> response = ApiResponseDTO.<List<VehicleResponseDTO>>builder()
+                .status("success")
+                .message("Vehicles retrieved successfully")
+                .data(vehicles)
+                .timestamp(Instant.now())
+                .path(request.getRequestURI())
                 .build();
 
         return ResponseEntity.ok(response);

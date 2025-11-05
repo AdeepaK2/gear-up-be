@@ -63,6 +63,14 @@ public class CustomerService {
                 .orElseThrow(() -> new CustomerNotFoundException("Customer not found with id: " + id));
     }
 
+    public CustomerResponseDTO getCustomer() {
+        Long id = currentUserService.getCurrentEntityId();
+
+        return customerRepository.findById(id)
+                .map(customerMapper::toDto)
+                .orElseThrow(() -> new CustomerNotFoundException("Customer not found with id: " + id));
+    }
+
     @Transactional
     public CustomerResponseDTO create(CustomerRequestDTO dto) {
         User currentUser = currentUserService.getCurrentUser();
@@ -158,31 +166,35 @@ public class CustomerService {
                 .build();
     }
 
-//    @Transactional(readOnly = true)
-//    public List<NotificationDTO> getNotifications(Long id) {
-//        Customer customer = customerRepository.findById(id)
-//                .orElseThrow(() -> new CustomerNotFoundException("Customer not found with id: " + id));
-//
-//        List<Notification> notifications = notificationRepository.findByCustomerOrderByCreatedAtDesc(customer);
-//
-//        return notifications.stream()
-//                .map(n -> NotificationDTO.builder()
-//                        .id(n.getId())
-//                        .message(n.getMessage())
-//                        .type(n.getType())
-//                        .time(formatTimeAgo(n.getCreatedAt()))
-//                        .build())
-//                .collect(Collectors.toList());
-//    }
+    // @Transactional(readOnly = true)
+    // public List<NotificationDTO> getNotifications(Long id) {
+    // Customer customer = customerRepository.findById(id)
+    // .orElseThrow(() -> new CustomerNotFoundException("Customer not found with id:
+    // " + id));
+    //
+    // List<Notification> notifications =
+    // notificationRepository.findByCustomerOrderByCreatedAtDesc(customer);
+    //
+    // return notifications.stream()
+    // .map(n -> NotificationDTO.builder()
+    // .id(n.getId())
+    // .message(n.getMessage())
+    // .type(n.getType())
+    // .time(formatTimeAgo(n.getCreatedAt()))
+    // .build())
+    // .collect(Collectors.toList());
+    // }
 
     // helper
     private String formatTimeAgo(LocalDateTime dateTime) {
         Duration duration = Duration.between(dateTime, LocalDateTime.now());
-        if (duration.toMinutes() < 60) return duration.toMinutes() + " minutes ago";
-        else if (duration.toHours() < 24) return duration.toHours() + " hours ago";
-        else return duration.toDays() + " days ago";
+        if (duration.toMinutes() < 60)
+            return duration.toMinutes() + " minutes ago";
+        else if (duration.toHours() < 24)
+            return duration.toHours() + " hours ago";
+        else
+            return duration.toDays() + " days ago";
     }
-
 
     // Customer Dashboard
     @Transactional(readOnly = true)
@@ -250,8 +262,7 @@ public class CustomerService {
                         .description("Payment for last service has been processed.")
                         .time(formatTimeAgo(LocalDateTime.now().minusDays(2)))
                         .icon("credit-card")
-                        .build()
-        );
+                        .build());
 
         // --- Vehicles list ---
         List<CustomerVehicleDTO> vehicles = customer.getVehicles().stream()
@@ -274,7 +285,6 @@ public class CustomerService {
                 .build();
     }
 
-
     public List<CustomerSearchResponseDTO> searchCustomersByCustomerName(String name) {
         return customerRepository.findCustomerSearchResultsNative(name)
                 .stream()
@@ -282,8 +292,7 @@ public class CustomerService {
                         p.getCustomerId(),
                         new UserResponseDTO(
                                 p.getName(),
-                                p.getEmail()
-                        ),
+                                p.getEmail()),
                         p.getPhoneNumber()))
                 .collect(Collectors.toList());
     }
@@ -313,10 +322,9 @@ public class CustomerService {
         // Send deactivation email
         try {
             emailService.sendCustomerDeactivationEmail(
-                user.getEmail(),
-                user.getName(),
-                reason != null && !reason.isEmpty() ? reason : "Administrative review or policy violation"
-            );
+                    user.getEmail(),
+                    user.getName(),
+                    reason != null && !reason.isEmpty() ? reason : "Administrative review or policy violation");
         } catch (Exception e) {
             // Log but don't fail the deactivation if email fails
             System.err.println("Failed to send deactivation email: " + e.getMessage());
