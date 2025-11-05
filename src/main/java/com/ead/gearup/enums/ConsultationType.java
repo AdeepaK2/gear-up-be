@@ -4,13 +4,11 @@ import lombok.Getter;
 
 @Getter
 public enum ConsultationType {
-    ENGINE_CHECK("Engine Check"),
-    OIL_CHANGE("Oil Change"),
-    BRAKE_INSPECTION("Brake Inspection"),
-    TIRE_ROTATION("Tire Rotation"),
-    FULL_SERVICE("Full Vehicle Service"),
-    BATTERY_TEST("Battery Test"),
-    DIAGNOSTIC_SCAN("Diagnostic Scan"),
+    GENERAL_CHECKUP("General Checkup"),
+    SPECIFIC_ISSUE("Specific Issue"),
+    MAINTENANCE_ADVICE("Maintenance Advice"),
+    PERFORMANCE_ISSUE("Performance Issue"),
+    SAFETY_CONCERN("Safety Concern"),
     OTHER("Other");
 
     private final String label;
