@@ -17,6 +17,7 @@ public class NotificationEventListener {
 
     private final NotificationService notificationService;
 
+    // Handle notification events asynchronously
     @Async
     @EventListener
     public void handleNotificationEvent(NotificationEvent event) {
@@ -30,6 +31,7 @@ public class NotificationEventListener {
                 .type(event.getType())
                 .build();
         
-        notificationService.createAndSendNotification(notificationDTO);
+        // Use the async method for event-driven notifications
+        notificationService.createAndSendNotificationAsync(notificationDTO);
     }
 }

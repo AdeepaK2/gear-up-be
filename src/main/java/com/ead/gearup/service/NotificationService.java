@@ -29,7 +29,12 @@ public class NotificationService {
     private final NotificationRepository notificationRepository;
     private final SseConnectionManager sseConnectionManager;
 
-    @Async
+    /**
+     * Create and send a notification synchronously (used by REST API)
+     * 
+     * @param createNotificationDTO The notification data
+     * @return The created notification
+     */
     @Transactional
     public NotificationDTO createAndSendNotification(CreateNotificationDTO createNotificationDTO) {
         log.info("Creating notification for user: {}", createNotificationDTO.getUserId());
@@ -51,6 +56,29 @@ public class NotificationService {
         sseConnectionManager.sendToUser(savedNotification.getUserId(), eventDTO);
         
         return convertToDTO(savedNotification);
+    }
+
+    // Create and send a notification asynchronously (used by internal services)
+    @Async
+    @Transactional
+    public void createAndSendNotificationAsync(CreateNotificationDTO createNotificationDTO) {
+        log.info("Creating notification asynchronously for user: {}", createNotificationDTO.getUserId());
+        
+        // Save to database
+        Notification notification = Notification.builder()
+                .userId(createNotificationDTO.getUserId())
+                .title(createNotificationDTO.getTitle())
+                .message(createNotificationDTO.getMessage())
+                .type(createNotificationDTO.getType())
+                .isRead(false)
+                .build();
+        
+        Notification savedNotification = notificationRepository.save(notification);
+        log.info("Notification saved with ID: {}", savedNotification.getId());
+        
+        // Send via SSE if user is connected
+        NotificationEventDTO eventDTO = convertToEventDTO(savedNotification);
+        sseConnectionManager.sendToUser(savedNotification.getUserId(), eventDTO);
     }
 
     // Send notification to multiple users
