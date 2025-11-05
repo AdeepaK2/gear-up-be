@@ -43,6 +43,7 @@ public class ProjectService {
     private final AppointmentRepository appointmentRepository;
     private final VehicleRepository vehicleRepository;
     private final TaskRepository taskRepository;
+    private final EmployeeRepository employeeRepository;
     private final ProjectDTOConverter projectDTOConverter;
     private final TaskDTOConverter taskDTOConverter;
 
@@ -369,6 +370,33 @@ public class ProjectService {
         return projectDTOConverter.convertToResponseDto(project);
     }
 
+    @Transactional
+    @RequiresRole({UserRole.ADMIN})
+    public ProjectResponseDTO assignEmployees(Long projectId, List<Long> employeeIds) {
+        log.info("=== ASSIGN EMPLOYEES TO PROJECT ===");
+        log.info("Project ID: {}, Employee IDs: {}", projectId, employeeIds);
+
+        Project project = projectRepository.findById(projectId)
+                .orElseThrow(() -> new ProjectNotFoundException("Project not found: " + projectId));
+
+        // Fetch employees by IDs
+        List<Employee> employees = employeeRepository.findAllById(employeeIds);
+
+        if (employees.isEmpty()) {
+            throw new ResourceNotFoundException("No valid employees found for the provided IDs");
+        }
+
+        log.info("Found {} employees to assign", employees.size());
+
+        // Clear existing assignments and add new ones
+        project.getAssignedEmployees().clear();
+        project.getAssignedEmployees().addAll(employees);
+
+        projectRepository.save(project);
+        log.info("Employees assigned successfully to project {}", projectId);
+
+        return projectDTOConverter.convertToResponseDto(project);
+    }
 
 
 

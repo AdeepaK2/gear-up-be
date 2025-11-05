@@ -242,4 +242,23 @@ public class ProjectController {
                 return ResponseEntity.ok(response);
         }
 
+        @PostMapping("/{projectId}/assign-employees")
+        @Operation(summary = "Assign employees to a project (Admin only)")
+        public ResponseEntity<ApiResponseDTO<ProjectResponseDTO>> assignEmployees(
+                        @PathVariable Long projectId,
+                        @Valid @RequestBody AssignEmployeesDTO dto,
+                        HttpServletRequest request) {
+                ProjectResponseDTO updatedProject = projectService.assignEmployees(projectId, dto.getEmployeeIds());
+
+                ApiResponseDTO<ProjectResponseDTO> response = ApiResponseDTO.<ProjectResponseDTO>builder()
+                                .status("success")
+                                .message("Employees assigned successfully")
+                                .data(updatedProject)
+                                .timestamp(Instant.now())
+                                .path(request.getRequestURI())
+                                .build();
+
+                return ResponseEntity.ok(response);
+        }
+
 }
