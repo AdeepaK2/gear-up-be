@@ -132,7 +132,9 @@ public class SecurityConfig {
                 "http://localhost:3000",              // dev frontend
                 "https://gearup.code102.site",        // production frontend (Vercel)
                 "http://135.171.192.76",              // k8s deployment
-                "http://localhost:80"                  // local docker
+                "http://localhost:80",                // local docker
+                "http://192.168.49.2:31660",          // minikube frontend NodePort
+                "http://gearup.local"                 // ingress host
         ));
         config.setAllowedHeaders(List.of("*")); // Allow all headers
         config.setAllowedMethods(List.of("GET", "POST", "PUT", "DELETE", "PATCH", "OPTIONS"));
