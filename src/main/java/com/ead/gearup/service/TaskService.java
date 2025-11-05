@@ -69,8 +69,12 @@ public class TaskService {
 
         if (role == UserRole.CUSTOMER) {
             Long customerId = currentUserService.getCurrentEntityId();
-            if (task.getProject() == null ||
-                    !task.getProject().getCustomer().getCustomerId().equals(customerId)) {
+            boolean hasAccessViaProject = task.getProject() != null &&
+                    task.getProject().getCustomer().getCustomerId().equals(customerId);
+            boolean hasAccessViaAppointment = task.getAppointment() != null &&
+                    task.getAppointment().getCustomer().getCustomerId().equals(customerId);
+
+            if (!hasAccessViaProject && !hasAccessViaAppointment) {
                 throw new TaskNotFoundException("Task not found " + taskId);
             }
         }
@@ -96,8 +100,15 @@ public class TaskService {
             Long customerId = currentUserService.getCurrentEntityId();
 
             return taskRepository.findAll().stream()
-                    .filter(t -> t.getProject() != null
+                    .filter(t ->
+                        // Include tasks with projects belonging to this customer
+                        (t.getProject() != null
                             && t.getProject().getCustomer().getCustomerId().equals(customerId))
+                        ||
+                        // Also include tasks with appointments belonging to this customer
+                        (t.getAppointment() != null
+                            && t.getAppointment().getCustomer().getCustomerId().equals(customerId))
+                    )
                     .map(taskDTOConverter::convertToResponseDto)
                     .toList();
         }

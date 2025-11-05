@@ -45,11 +45,21 @@ public class ProjectService {
     private final TaskDTOConverter taskDTOConverter;
 
 
-    @RequiresRole({UserRole.EMPLOYEE, UserRole.ADMIN})
+    @RequiresRole({UserRole.CUSTOMER, UserRole.EMPLOYEE, UserRole.ADMIN})
     public ProjectResponseDTO createProject(CreateProjectDTO dto) {
         Appointment appointment = appointmentRepository.findById(dto.getAppointmentId())
                 .orElseThrow(() -> new AppointmentNotFoundException(
                         "Appointment not found: " + dto.getAppointmentId()));
+
+        // Verify that the customer creating the project owns the appointment
+        UserRole role = currentUserService.getCurrentUserRole();
+        if (role == UserRole.CUSTOMER) {
+            Long customerId = currentUserService.getCurrentEntityId();
+            if (!appointment.getCustomer().getCustomerId().equals(customerId)) {
+                throw new UnauthorizedAppointmentAccessException(
+                        "You cannot create a project for another customer's appointment");
+            }
+        }
 
         Vehicle vehicle = vehicleRepository.findById(dto.getVehicleId())
                 .orElseThrow(() -> new VehicleNotFoundException(
@@ -63,12 +73,24 @@ public class ProjectService {
         Project project = projectDTOConverter.convertToEntity(dto);
         project.setAppointment(appointment);
         project.setVehicle(vehicle);
-        project.setTasks(tasks);
+        project.setCustomer(appointment.getCustomer());
         project.setStatus(ProjectStatus.CREATED);
 
-        projectRepository.save(project);
+        // Save project first to get an ID
+        Project savedProject = projectRepository.save(project);
 
-        return projectDTOConverter.convertToResponseDto(project);
+        // Set bidirectional relationship between project and tasks
+        tasks.forEach(task -> {
+            task.setProject(savedProject);
+            task.setAssignedProject(true);
+        });
+        taskRepository.saveAll(tasks);
+
+        // Add tasks to project's task list
+        savedProject.setTasks(tasks);
+        projectRepository.save(savedProject);
+
+        return projectDTOConverter.convertToResponseDto(savedProject);
     }
 
     @RequiresRole({UserRole.EMPLOYEE, UserRole.ADMIN})
