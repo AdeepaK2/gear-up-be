@@ -97,6 +97,9 @@ public class Project {
     @Builder.Default
     private Integer acceptedServicesCount = 0;
 
+    @Builder.Default
+    private Boolean reportSentToCustomer = false;
+
     @CreationTimestamp
     private LocalDateTime createdAt;
 

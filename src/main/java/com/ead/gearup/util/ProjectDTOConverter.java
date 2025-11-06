@@ -61,6 +61,17 @@ public class ProjectDTOConverter {
         try {
             if(project.getVehicle() != null){
                 dto.setVehicleId(project.getVehicle().getVehicleId());
+                String make = project.getVehicle().getMake();
+                String model = project.getVehicle().getModel();
+                String vehicleName = null;
+                if (make != null && !make.isEmpty() && model != null && !model.isEmpty()) {
+                    vehicleName = make + " " + model;
+                } else if (model != null && !model.isEmpty()) {
+                    vehicleName = model;
+                } else if (make != null && !make.isEmpty()) {
+                    vehicleName = make;
+                }
+                dto.setVehicleName(vehicleName);
             }
         } catch (Exception e) {
             System.err.println("Error accessing vehicle: " + e.getMessage());

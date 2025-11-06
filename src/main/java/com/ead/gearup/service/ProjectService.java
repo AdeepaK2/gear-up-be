@@ -152,6 +152,11 @@ public class ProjectService {
         Project project = projectRepository.findById(projectId)
                 .orElseThrow(() -> new ProjectNotFoundException("Project not found: " + projectId));
 
+        if (project.getVehicle() != null) {
+            project.getVehicle().getVehicleId();
+            project.getVehicle().getModel();
+        }
+
         log.info("Project found: {} with {} tasks", project.getName(),
                  project.getTasks() != null ? project.getTasks().size() : 0);
 
@@ -257,14 +262,62 @@ public class ProjectService {
 
     @RequiresRole({UserRole.EMPLOYEE, UserRole.ADMIN})
     public List<EmployeeProjectResponseDTO> getAssignedProjectsForCurrentEmployee() {
-        Long employeeId = currentUserService.getCurrentUserId();
-        List<Project> projects = projectRepository.findByAssignedEmployeesEmployeeId(employeeId);
+        Long employeeId = currentUserService.getCurrentEntityId();
+        List<Project> projects = projectRepository.findByAssignedEmployeesEmployeeIdOrMainRepresentativeEmployeeIdWithDetails(employeeId);
 
         return projects.stream()
-                .map(p -> new EmployeeProjectResponseDTO(
-                        p.getProjectId(),
-                        p.getName()
-                ))
+                .map(p -> {
+                    EmployeeProjectResponseDTO dto = new EmployeeProjectResponseDTO();
+                    dto.setProjectId(p.getProjectId());
+                    dto.setProjectName(p.getName());
+                    dto.setDescription(p.getDescription());
+                    dto.setStatus(p.getStatus());
+                    dto.setStartDate(p.getStartDate());
+                    dto.setEndDate(p.getEndDate());
+                    dto.setDueDate(p.getEndDate());
+                    
+                    if (p.getCustomer() != null) {
+                        dto.setCustomerId(p.getCustomer().getCustomerId());
+                        if (p.getCustomer().getUser() != null) {
+                            dto.setCustomerName(p.getCustomer().getUser().getName());
+                        }
+                    }
+                    
+                    if (p.getVehicle() != null) {
+                        dto.setVehicleId(p.getVehicle().getVehicleId());
+                        dto.setVehicleName(p.getVehicle().getModel());
+                    }
+                    
+                    if (p.getAppointment() != null) {
+                        dto.setAppointmentId(p.getAppointment().getAppointmentId());
+                    }
+                    
+                    if (p.getAssignedEmployees() != null) {
+                        List<EmployeeProjectResponseDTO.AssignedEmployeeDTO> assignedEmployees = p.getAssignedEmployees().stream()
+                                .map(emp -> {
+                                    String name = emp.getUser() != null ? emp.getUser().getName() : "Unknown";
+                                    return new EmployeeProjectResponseDTO.AssignedEmployeeDTO(
+                                            emp.getEmployeeId(),
+                                            name,
+                                            emp.getSpecialization()
+                                    );
+                                })
+                                .toList();
+                        dto.setAssignedEmployees(assignedEmployees);
+                    }
+                    
+                    if (p.getMainRepresentativeEmployee() != null) {
+                        dto.setMainRepresentativeEmployeeId(p.getMainRepresentativeEmployee().getEmployeeId());
+                        if (p.getMainRepresentativeEmployee().getUser() != null) {
+                            dto.setMainRepresentativeEmployeeName(p.getMainRepresentativeEmployee().getUser().getName());
+                        }
+                        dto.setIsMainRepresentative(p.getMainRepresentativeEmployee().getEmployeeId().equals(employeeId));
+                    } else {
+                        dto.setIsMainRepresentative(false);
+                    }
+                    
+                    return dto;
+                })
                 .toList();
     }
 
@@ -293,6 +346,154 @@ public class ProjectService {
                 completionDays
         );
     }
+
+    @Transactional
+    @RequiresRole({UserRole.EMPLOYEE, UserRole.ADMIN})
+    public ProjectResponseDTO submitProjectReport(Long projectId, ProjectReportDTO reportDTO) {
+        log.info("=== SUBMIT PROJECT REPORT ===");
+        log.info("Project ID: {}, Task IDs: {}, Notes: {}", projectId, reportDTO.getTaskIds(), reportDTO.getNotes());
+
+        Long employeeId = currentUserService.getCurrentEntityId();
+        
+        Project project = projectRepository.findByIdWithDetails(projectId)
+                .orElseThrow(() -> new ProjectNotFoundException("Project not found: " + projectId));
+
+        boolean isAssigned = project.getAssignedEmployees().stream()
+                .anyMatch(e -> e.getEmployeeId().equals(employeeId));
+        boolean isMainRep = project.getMainRepresentativeEmployee() != null &&
+                project.getMainRepresentativeEmployee().getEmployeeId().equals(employeeId);
+
+        if (!isAssigned && !isMainRep) {
+            throw new UnauthorizedProjectAccessException("You are not assigned to this project.");
+        }
+
+        if (project.getStatus() != ProjectStatus.COMPLETED) {
+            throw new IllegalStateException("Project report can only be submitted for completed projects.");
+        }
+
+        if (project.getTasks() != null && !project.getTasks().isEmpty()) {
+            List<Long> projectTaskIds = project.getTasks().stream()
+                    .map(Task::getTaskId)
+                    .toList();
+            
+            boolean allTasksValid = reportDTO.getTaskIds().stream()
+                    .allMatch(projectTaskIds::contains);
+            
+            if (!allTasksValid) {
+                throw new IllegalArgumentException("One or more selected tasks do not belong to this project.");
+            }
+        }
+
+        String existingDescription = project.getDescription() != null ? project.getDescription() : "";
+        
+        // Calculate available space (255 max total)
+        int maxDescriptionLength = 255;
+        
+        // If existing description is too long, truncate it to leave room for report
+        if (existingDescription.length() > 150) {
+            existingDescription = existingDescription.substring(0, 150) + "...";
+        }
+        
+        StringBuilder reportNotes = new StringBuilder("\n\n--- Project Report ---\n");
+        reportNotes.append("Submitted by: ").append(project.getMainRepresentativeEmployee() != null && 
+                project.getMainRepresentativeEmployee().getEmployeeId().equals(employeeId) ? 
+                "Main Representative" : "Assigned Employee").append("\n");
+        reportNotes.append("Date: ").append(LocalDate.now()).append("\n");
+        reportNotes.append("Completed Services: ").append(reportDTO.getTaskIds().size()).append("\n");
+        
+        // Calculate remaining space after header
+        int usedSpace = existingDescription.length() + reportNotes.length();
+        int remainingSpace = maxDescriptionLength - usedSpace;
+        
+        if (reportDTO.getExtraCharges() != null && !reportDTO.getExtraCharges().isEmpty()) {
+            double extraChargesTotal = reportDTO.getExtraCharges().stream()
+                    .mapToDouble(charge -> charge.getAmount() != null ? charge.getAmount() : 0.0)
+                    .sum();
+            String extraChargesLine = "Extra Charges Total: $" + String.format("%.2f", extraChargesTotal) + "\n";
+            
+            if (remainingSpace > extraChargesLine.length() + 20) {
+                reportNotes.append(extraChargesLine);
+                remainingSpace -= extraChargesLine.length();
+                
+                // Limit extra charges details
+                int maxCharges = Math.min(3, reportDTO.getExtraCharges().size()); // Max 3 charges
+                int chargeCount = 0;
+                for (ProjectReportDTO.ExtraChargeDTO charge : reportDTO.getExtraCharges()) {
+                    if (chargeCount >= maxCharges || remainingSpace < 30) break;
+                    if (charge.getDescription() != null && !charge.getDescription().trim().isEmpty() && 
+                        charge.getAmount() != null && charge.getAmount() > 0) {
+                        String desc = charge.getDescription();
+                        if (desc.length() > 30) {
+                            desc = desc.substring(0, 27) + "...";
+                        }
+                        String chargeLine = "  - " + desc + ": $" + String.format("%.2f", charge.getAmount()) + "\n";
+                        if (remainingSpace >= chargeLine.length()) {
+                            reportNotes.append(chargeLine);
+                            remainingSpace -= chargeLine.length();
+                            chargeCount++;
+                        } else {
+                            break;
+                        }
+                    }
+                }
+            }
+        }
+        
+        // Limit notes length
+        if (reportDTO.getNotes() != null && !reportDTO.getNotes().trim().isEmpty() && remainingSpace > 10) {
+            String notes = reportDTO.getNotes().trim();
+            int maxNotesLength = Math.min(remainingSpace - 7, 100); // Reserve 7 chars for "Notes: "
+            if (notes.length() > maxNotesLength) {
+                notes = notes.substring(0, maxNotesLength - 3) + "...";
+            }
+            reportNotes.append("Notes: ").append(notes);
+        }
+        
+        String finalDescription = existingDescription + reportNotes.toString();
+        // Final safety check - truncate if still too long
+        if (finalDescription.length() > maxDescriptionLength) {
+            finalDescription = finalDescription.substring(0, maxDescriptionLength - 3) + "...";
+        }
+        
+        project.setDescription(finalDescription);
+        project.setReportSentToCustomer(true);
+
+        Project savedProject = projectRepository.save(project);
+        log.info("Project report submitted successfully for project ID: {} and sent to customer", projectId);
+
+        return projectDTOConverter.convertToResponseDto(savedProject);
+    }
+
+    @Transactional
+    @RequiresRole({UserRole.CUSTOMER, UserRole.ADMIN})
+    public List<ProjectResponseDTO> getProjectsWithReportsForCurrentCustomer() {
+        Long customerId = currentUserService.getCurrentEntityId();
+        log.info("=== GET PROJECTS WITH REPORTS FOR CUSTOMER ===");
+        log.info("Customer ID: {}", customerId);
+
+        if (customerId == null) {
+            log.warn("Customer ID is null for current user");
+            throw new CustomerNotFoundException("Customer not found for current user");
+        }
+
+        List<Project> projects = projectRepository.findProjectsWithReportsByCustomerId(customerId, ProjectStatus.COMPLETED);
+        log.info("Projects with reports found: {}", projects.size());
+
+        // Initialize tasks for each project (lazy loading within transaction)
+        projects.forEach(project -> {
+            if (project.getTasks() != null) {
+                project.getTasks().size(); // Force lazy loading
+            }
+        });
+
+        List<ProjectResponseDTO> result = projects.stream()
+                .map(projectDTOConverter::convertToResponseDto)
+                .toList();
+
+        log.info("Successfully converted {} projects to DTOs", result.size());
+        return result;
+    }
+
     @Transactional
     public TaskResponseDTO updateServiceStatus(Long projectId, Long taskId, TaskStatusUpdateDTO dto) {
         Project project = projectRepository.findById(projectId)
