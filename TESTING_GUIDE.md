@@ -12,13 +12,13 @@
 
 **Controller Tests:**
 
-- CustomerController - Customer endpoints
-- VehicleController - Vehicle endpoints
-- AppointmentController - Appointment endpoints
-- ProjectController - Project endpoints
-- TaskController - Task endpoints
-- TimeLogController - Time log endpoints
-- EmployeeController - Employee profile endpoints
+- ✅ CustomerController - Customer endpoints
+- ✅ VehicleController - Vehicle endpoints
+- ✅ AppointmentController - Appointment endpoints
+- ✅ ProjectController - Project endpoints
+- ✅ TaskController - Task endpoints
+- ✅ TimeLogController - Time log endpoints
+- ✅ EmployeeController - Employee profile endpoints
 
 **GraphQL Tests:**
 
@@ -42,13 +42,13 @@ src/test/java/com/ead/gearup/
 │       └── EmployeeServiceUnitTest.java        ✅ COMPLETE (21 tests)
 ├── integration/
 │   └── controller/
-│       ├── CustomerControllerIntegrationTest.java        ⏳ TODO
-│       ├── VehicleControllerIntegrationTest.java         ⏳ TODO
-│       ├── AppointmentControllerIntegrationTest.java     ⏳ TODO
-│       ├── ProjectControllerIntegrationTest.java         ⏳ TODO
-│       ├── TaskControllerIntegrationTest.java            ⏳ TODO
-│       ├── TimeLogControllerIntegrationTest.java         ⏳ TODO
-│       └── EmployeeControllerIntegrationTest.java        ⏳ TODO
+│       ├── CustomerControllerIntegrationTest.java        ✅ COMPLETE (17 tests)
+│       ├── VehicleControllerIntegrationTest.java         ✅ COMPLETE (17 tests)
+│       ├── AppointmentControllerIntegrationTest.java     ✅ COMPLETE (20 tests)
+│       ├── ProjectControllerIntegrationTest.java         ✅ COMPLETE (18 tests)
+│       ├── TaskControllerIntegrationTest.java            ✅ COMPLETE (18 tests)
+│       ├── TimeLogControllerIntegrationTest.java         ✅ COMPLETE (17 tests)
+│       └── EmployeeControllerIntegrationTest.java        ✅ COMPLETE (19 tests)
 ├── fixtures/           # Test data builders
 └── helpers/            # Test utility classes
 ```
@@ -150,6 +150,12 @@ mvn test -Dtest=CustomerServiceUnitTest
 
 ```powershell
 mvn test -Dtest="*ServiceUnitTest"
+```
+
+### Run All Controller Integration Tests
+
+```powershell
+mvn test -Dtest="*ControllerIntegrationTest"
 ```
 
 ### Run With Coverage Report
@@ -502,13 +508,13 @@ assertAll(
 
 ### Controller Integration Tests
 
-- [ ] CustomerController
-- [ ] VehicleController
-- [ ] AppointmentController
-- [ ] ProjectController
-- [ ] TaskController
-- [ ] TimeLogController
-- [ ] EmployeeController
+- [x] CustomerController (17 tests)
+- [x] VehicleController (17 tests)
+- [x] AppointmentController (20 tests)
+- [x] ProjectController (18 tests)
+- [x] TaskController (18 tests)
+- [x] TimeLogController (17 tests)
+- [x] EmployeeController (19 tests)
 
 ### GraphQL Tests
 
@@ -523,10 +529,10 @@ After completing this testing assignment, you will have learned:
 
 1. ✅ **Unit Testing** - Testing business logic in isolation
 2. ✅ **Mocking** - Using Mockito to mock dependencies
-3. ⏳ **Integration Testing** - Testing REST endpoints with MockMvc
-4. ⏳ **Test Coverage** - Measuring and improving code coverage
-5. ⏳ **Spring Boot Testing** - Using Spring Boot test framework
-6. ⏳ **Best Practices** - Writing maintainable and readable tests
+3. ✅ **Integration Testing** - Testing REST endpoints with MockMvc
+4. ✅ **Test Coverage** - Measuring and improving code coverage
+5. ✅ **Spring Boot Testing** - Using Spring Boot test framework
+6. ✅ **Best Practices** - Writing maintainable and readable tests
 
 ---
 
