@@ -26,9 +26,11 @@ import com.ead.gearup.model.User;
 import com.ead.gearup.model.Vehicle;
 import com.ead.gearup.repository.AppointmentRepository;
 import com.ead.gearup.repository.CustomerRepository;
+import com.ead.gearup.repository.UserRepository;
 import com.ead.gearup.repository.VehicleRepository;
 import com.ead.gearup.service.auth.CurrentUserService;
 import com.ead.gearup.util.AppointmentDTOConverter;
+import com.ead.gearup.util.NotificationPublisher;
 import com.ead.gearup.validation.RequiresRole;
 
 import lombok.RequiredArgsConstructor;
@@ -45,6 +47,8 @@ public class AppointmentService {
     private final VehicleRepository vehicleRepository;
     private final AppointmentDTOConverter converter;
     private final AppointmentRepository appointmentRepository;
+    private final NotificationPublisher notificationPublisher;
+    private final UserRepository userRepository;
 
     @RequiresRole(UserRole.CUSTOMER)
     public AppointmentResponseDTO createAppointment(AppointmentCreateDTO appointmentCreateDTO) {
@@ -63,6 +67,9 @@ public class AppointmentService {
 
         Appointment appointment = converter.convertToEntity(appointmentCreateDTO, vehicle, customer);
         appointmentRepository.save(appointment);
+
+        // NOTIFICATION: Notify all admins when customer creates appointment
+        notifyAdminsAboutNewAppointment(appointment);
 
         return converter.convertToResponseDto(appointment);
     }
@@ -165,10 +172,35 @@ public class AppointmentService {
             }
         }
 
-        Appointment updatedAppointment = converter.updateEntityFromDto(appointment, updateDTO);
-        appointmentRepository.save(updatedAppointment);
+        //  CAPTURE OLD VALUES BEFORE UPDATE
+        Long oldEmployeeId = appointment.getEmployee() != null ? appointment.getEmployee().getEmployeeId() : null;
+        AppointmentStatus oldStatus = appointment.getStatus();
 
-        return converter.convertToResponseDto(updatedAppointment);
+        // Update appointment
+        Appointment updatedAppointment = converter.updateEntityFromDto(appointment, updateDTO);
+        Appointment savedAppointment = appointmentRepository.save(updatedAppointment);
+
+        //  NOTIFICATION: Notify employee when assigned to appointment
+        if (updateDTO.getEmployeeId() != null) {
+            // Check if employee was changed (either from null or different employee)
+            boolean employeeChanged = (oldEmployeeId == null) || 
+                                     (!oldEmployeeId.equals(updateDTO.getEmployeeId()));
+            
+            if (employeeChanged) {
+                log.info("Employee assignment changed: old={}, new={}", oldEmployeeId, updateDTO.getEmployeeId());
+                notifyEmployeeAboutAppointmentAssignment(savedAppointment);
+            }
+        }
+
+        //  NOTIFICATION: Notify customer and admin when appointment is completed
+        if (updateDTO.getStatus() != null && 
+            updateDTO.getStatus() == AppointmentStatus.COMPLETED && 
+            oldStatus != AppointmentStatus.COMPLETED) {
+            log.info("Appointment status changed to COMPLETED: old={}, new={}", oldStatus, updateDTO.getStatus());
+            notifyAppointmentCompletion(savedAppointment);
+        }
+
+        return converter.convertToResponseDto(savedAppointment);
     }
 
     public void deleteAppointment(Long appointmentId) {
@@ -309,5 +341,126 @@ public class AppointmentService {
         dto.setStartTime(projection.getStartTime());
         dto.setEndTime(projection.getEndTime());
         return dto;
+    }
+
+    // ========== NOTIFICATION HELPER METHODS ==========
+
+    /**
+     * NOTIFICATION #4: Notify admins when customer creates an appointment
+     */
+    private void notifyAdminsAboutNewAppointment(Appointment appointment) {
+        try {
+            List<User> adminUsers = userRepository.findByRole(UserRole.ADMIN);
+            if (!adminUsers.isEmpty() && appointment.getCustomer() != null 
+                && appointment.getCustomer().getUser() != null) {
+                
+                String customerName = appointment.getCustomer().getUser().getName();
+                String appointmentDate = appointment.getDate().toString();
+                String title = "New Appointment Request";
+                String message = "Customer " + customerName + " created an appointment for " + appointmentDate;
+                
+                for (User admin : adminUsers) {
+                    notificationPublisher.publishAppointmentNotification(
+                        admin.getUserId().toString(),
+                        title,
+                        message
+                    );
+                }
+                log.info("Notified {} admin(s) about new appointment request", adminUsers.size());
+            }
+        } catch (Exception e) {
+            log.error("Failed to send new appointment notifications to admins", e);
+        }
+    }
+
+    /**
+     * NOTIFICATION #5: Notify employee when assigned to an appointment
+     */
+    private void notifyEmployeeAboutAppointmentAssignment(Appointment appointment) {
+        try {
+            log.info("=== ATTEMPTING TO NOTIFY EMPLOYEE ABOUT APPOINTMENT ASSIGNMENT ===");
+            log.info("Appointment ID: {}", appointment.getAppointmentId());
+            log.info("Employee: {}", appointment.getEmployee() != null ? appointment.getEmployee().getEmployeeId() : "NULL");
+            
+            if (appointment.getEmployee() != null && appointment.getEmployee().getUser() != null) {
+                String customerName = appointment.getCustomer() != null 
+                    && appointment.getCustomer().getUser() != null 
+                    ? appointment.getCustomer().getUser().getName() 
+                    : "Customer";
+                String appointmentDate = appointment.getDate().toString();
+                String title = "New Appointment Assigned";
+                String message = "You have been assigned an appointment with " + customerName + " on " + appointmentDate;
+                
+                String employeeUserId = appointment.getEmployee().getUser().getUserId().toString();
+                log.info("Sending notification to employee user ID: {}", employeeUserId);
+                
+                notificationPublisher.publishAppointmentNotification(
+                    employeeUserId,
+                    title,
+                    message
+                );
+                log.info("Successfully notified employee {} about appointment assignment", 
+                    appointment.getEmployee().getUser().getName());
+            } else {
+                log.warn("Cannot notify employee - Employee or User is NULL");
+            }
+        } catch (Exception e) {
+            log.error("Failed to send appointment assignment notification to employee", e);
+        }
+    }
+
+    /**
+     * NOTIFICATION #6: Notify customer and admin when appointment is completed
+     */
+    private void notifyAppointmentCompletion(Appointment appointment) {
+        try {
+            log.info("=== ATTEMPTING TO NOTIFY ABOUT APPOINTMENT COMPLETION ===");
+            log.info("Appointment ID: {}", appointment.getAppointmentId());
+            log.info("Status: {}", appointment.getStatus());
+            
+            // Notify customer
+            if (appointment.getCustomer() != null && appointment.getCustomer().getUser() != null) {
+                String title = "Appointment Completed";
+                String message = "Your appointment on " + appointment.getDate().toString() + " has been completed";
+                
+                String customerUserId = appointment.getCustomer().getUser().getUserId().toString();
+                log.info("Sending completion notification to customer user ID: {}", customerUserId);
+                
+                notificationPublisher.publishAppointmentNotification(
+                    customerUserId,
+                    title,
+                    message
+                );
+                log.info("Notified customer {} about appointment completion", 
+                    appointment.getCustomer().getUser().getName());
+            } else {
+                log.warn("Cannot notify customer - Customer or User is NULL");
+            }
+
+            // Notify all admins
+            List<User> adminUsers = userRepository.findByRole(UserRole.ADMIN);
+            log.info("Found {} admin(s) to notify", adminUsers.size());
+            
+            if (!adminUsers.isEmpty()) {
+                String customerName = appointment.getCustomer() != null 
+                    && appointment.getCustomer().getUser() != null 
+                    ? appointment.getCustomer().getUser().getName() 
+                    : "Customer";
+                String title = "Appointment Completed";
+                String message = "Appointment with " + customerName + " on " + appointment.getDate().toString() + " has been completed";
+                
+                for (User admin : adminUsers) {
+                    log.info("Sending completion notification to admin user ID: {}", admin.getUserId());
+                    notificationPublisher.publishAppointmentNotification(
+                        admin.getUserId().toString(),
+                        title,
+                        message
+                    );
+                }
+                log.info("Notified {} admin(s) about appointment completion", adminUsers.size());
+            }
+        } catch (Exception e) {
+            log.error("Failed to send appointment completion notifications", e);
+        }
     }
 }

@@ -683,6 +683,11 @@ public class ProjectService {
         
         log.info("Project status updated successfully: {} ({} -> {})", projectId, oldStatus, newStatus);
 
+        // NOTIFICATION #7: Notify customer and admin when project is completed
+        if (newStatus == ProjectStatus.COMPLETED && oldStatus != ProjectStatus.COMPLETED) {
+            notifyProjectCompletion(project);
+        }
+
         return projectDTOConverter.convertToResponseDto(project);
     }
 
@@ -1039,6 +1044,48 @@ public class ProjectService {
             }
         } catch (Exception e) {
             log.error("Failed to send new project notifications to admins", e);
+        }
+    }
+
+    /**
+     * NOTIFICATION #7: Notify customer and admin when project is completed
+     */
+    private void notifyProjectCompletion(Project project) {
+        try {
+            // Notify customer
+            if (project.getCustomer() != null && project.getCustomer().getUser() != null) {
+                String title = "Project Completed";
+                String message = "Your project '" + project.getName() + "' has been completed successfully!";
+                
+                notificationPublisher.publishProjectNotification(
+                    project.getCustomer().getUser().getUserId().toString(),
+                    title,
+                    message
+                );
+                log.info("Notified customer about project completion");
+            }
+
+            // Notify all admins
+            List<User> adminUsers = userRepository.findByRole(UserRole.ADMIN);
+            if (!adminUsers.isEmpty()) {
+                String customerName = project.getCustomer() != null 
+                    && project.getCustomer().getUser() != null 
+                    ? project.getCustomer().getUser().getName() 
+                    : "Customer";
+                String title = "Project Completed";
+                String message = "Project '" + project.getName() + "' for customer " + customerName + " has been completed";
+                
+                for (User admin : adminUsers) {
+                    notificationPublisher.publishProjectNotification(
+                        admin.getUserId().toString(),
+                        title,
+                        message
+                    );
+                }
+                log.info("Notified {} admin(s) about project completion", adminUsers.size());
+            }
+        } catch (Exception e) {
+            log.error("Failed to send project completion notifications", e);
         }
     }
 
