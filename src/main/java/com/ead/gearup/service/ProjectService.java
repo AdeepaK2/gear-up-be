@@ -194,6 +194,13 @@ public class ProjectService {
             List<Project> customerProjects = projectRepository.findAllByCustomerIdWithDetails(customerId);
             log.info("Projects found for customer: {}", customerProjects.size());
 
+            // Initialize tasks for each project (lazy loading within transaction)
+            customerProjects.forEach(project -> {
+                if (project.getTasks() != null) {
+                    project.getTasks().size(); // Force lazy loading to avoid LazyInitializationException
+                }
+            });
+
             List<ProjectResponseDTO> result = customerProjects.stream()
                     .map(projectDTOConverter::convertToResponseDto)
                     .toList();
@@ -211,8 +218,17 @@ public class ProjectService {
                     .toList();
         }
 
-        // ADMIN → all projects
-        return projectRepository.findAll().stream()
+        // ADMIN → all projects with details
+        List<Project> allProjects = projectRepository.findAllWithDetails();
+        
+        // Initialize tasks for each project (lazy loading within transaction)
+        allProjects.forEach(project -> {
+            if (project.getTasks() != null) {
+                project.getTasks().size(); // Force lazy loading to avoid LazyInitializationException
+            }
+        });
+        
+        return allProjects.stream()
                 .map(projectDTOConverter::convertToResponseDto)
                 .toList();
     }
@@ -355,26 +371,64 @@ public class ProjectService {
     }
 
     @Transactional
+    @RequiresRole({UserRole.EMPLOYEE, UserRole.ADMIN})
     public ProjectResponseDTO updateProjectStatus(Long projectId, ProjectStatus newStatus) {
-        Project project = projectRepository.findById(projectId)
+        log.info("=== UPDATE PROJECT STATUS ===");
+        log.info("Project ID: {}, New Status: {}", projectId, newStatus);
+        
+        // Use repository method that eagerly loads assigned employees for validation
+        Project project = projectRepository.findByIdWithDetails(projectId)
                 .orElseThrow(() -> new ProjectNotFoundException("Project not found: " + projectId));
 
-        // Optional: restrict invalid transitions
+        log.info("Current project status: {}", project.getStatus());
+        UserRole currentRole = currentUserService.getCurrentUserRole();
+        log.info("Current user role: {}", currentRole);
+        
+        // Restrict invalid transitions
         if (project.getStatus() == ProjectStatus.COMPLETED && newStatus == ProjectStatus.CANCELLED) {
+            log.warn("Attempted to cancel a completed project: {}", projectId);
             throw new IllegalStateException("Cannot cancel a completed project.");
         }
 
+        // Admin-only actions: Approve (CREATED -> IN_PROGRESS) and Reject (any -> CANCELLED)
+        if (newStatus == ProjectStatus.IN_PROGRESS && project.getStatus() == ProjectStatus.CREATED) {
+            if (currentRole != UserRole.ADMIN) {
+                log.warn("Non-admin user attempted to approve project: {}", projectId);
+                throw new IllegalStateException("Only admins can approve projects.");
+            }
+            
+            // Check if at least one employee is assigned before approving
+            if (project.getAssignedEmployees() == null || project.getAssignedEmployees().isEmpty()) {
+                log.warn("Attempted to approve project {} without assigned employees", projectId);
+                throw new IllegalStateException("Cannot approve project. At least one employee must be assigned before approval.");
+            }
+            
+            log.info("Admin approving project: {} (CREATED -> IN_PROGRESS) with {} assigned employee(s)", 
+                    projectId, project.getAssignedEmployees().size());
+        }
+        
+        if (newStatus == ProjectStatus.CANCELLED && project.getStatus() != ProjectStatus.COMPLETED) {
+            if (currentRole != UserRole.ADMIN) {
+                log.warn("Non-admin user attempted to cancel project: {}", projectId);
+                throw new IllegalStateException("Only admins can reject/cancel projects.");
+            }
+            log.info("Admin rejecting/cancelling project: {} ({} -> CANCELLED)", projectId, project.getStatus());
+        }
+
+        ProjectStatus oldStatus = project.getStatus();
         project.setStatus(newStatus);
         projectRepository.save(project);
+        
+        log.info("Project status updated successfully: {} ({} -> {})", projectId, oldStatus, newStatus);
 
         return projectDTOConverter.convertToResponseDto(project);
     }
 
     @Transactional
     @RequiresRole({UserRole.ADMIN})
-    public ProjectResponseDTO assignEmployees(Long projectId, List<Long> employeeIds) {
+    public ProjectResponseDTO assignEmployees(Long projectId, List<Long> employeeIds, Long mainRepresentativeEmployeeId) {
         log.info("=== ASSIGN EMPLOYEES TO PROJECT ===");
-        log.info("Project ID: {}, Employee IDs: {}", projectId, employeeIds);
+        log.info("Project ID: {}, Employee IDs: {}, Main Representative ID: {}", projectId, employeeIds, mainRepresentativeEmployeeId);
 
         Project project = projectRepository.findById(projectId)
                 .orElseThrow(() -> new ProjectNotFoundException("Project not found: " + projectId));
@@ -387,15 +441,111 @@ public class ProjectService {
         }
 
         log.info("Found {} employees to assign", employees.size());
+        log.info("Employee IDs to assign: {}", employees.stream().map(Employee::getEmployeeId).toList());
 
-        // Clear existing assignments and add new ones
+        // Clear existing assignments first to ensure clean state
         project.getAssignedEmployees().clear();
+        log.info("Cleared existing employee assignments");
+
+        // Add all employees to the assigned employees list
         project.getAssignedEmployees().addAll(employees);
+        log.info("Added {} employees to assigned employees list", employees.size());
+        log.info("Assigned employee IDs: {}", project.getAssignedEmployees().stream().map(Employee::getEmployeeId).toList());
 
-        projectRepository.save(project);
-        log.info("Employees assigned successfully to project {}", projectId);
+        // Validate and set main representative
+        Employee mainRepresentative = null;
+        if (mainRepresentativeEmployeeId != null) {
+            if (!employeeIds.contains(mainRepresentativeEmployeeId)) {
+                throw new IllegalArgumentException("Main representative employee must be one of the assigned employees");
+            }
+            mainRepresentative = employeeRepository.findById(mainRepresentativeEmployeeId)
+                    .orElseThrow(() -> new ResourceNotFoundException("Main representative employee not found: " + mainRepresentativeEmployeeId));
+            
+            // Ensure main representative is in the assigned employees list
+            // Use final variable for lambda expression
+            final Long mainRepId = mainRepresentative.getEmployeeId();
+            boolean mainRepInList = project.getAssignedEmployees().stream()
+                    .anyMatch(e -> e.getEmployeeId().equals(mainRepId));
+            if (!mainRepInList) {
+                log.warn("Main representative (ID: {}) not in assigned employees list, adding it now", mainRepresentativeEmployeeId);
+                project.getAssignedEmployees().add(mainRepresentative);
+                log.info("Main representative added to assigned employees list");
+            } else {
+                log.info("Main representative (ID: {}) confirmed in assigned employees list", mainRepresentativeEmployeeId);
+            }
+            
+            project.setMainRepresentativeEmployee(mainRepresentative);
+            log.info("Main representative set to employee ID: {} (Name: {})", 
+                    mainRepresentativeEmployeeId, 
+                    mainRepresentative.getUser() != null ? mainRepresentative.getUser().getName() : "Unknown");
+        } else {
+            // If multiple employees but no main representative specified, set the first one as default
+            if (employees.size() > 1) {
+                log.warn("Multiple employees assigned but no main representative specified. Setting first employee as main representative.");
+                mainRepresentative = employees.get(0);
+                project.setMainRepresentativeEmployee(mainRepresentative);
+            } else if (employees.size() == 1) {
+                // Single employee automatically becomes the main representative
+                mainRepresentative = employees.get(0);
+                project.setMainRepresentativeEmployee(mainRepresentative);
+                log.info("Single employee automatically set as main representative: ID {}", mainRepresentative.getEmployeeId());
+            } else {
+                project.setMainRepresentativeEmployee(null);
+                log.info("No employees assigned, main representative set to null");
+            }
+        }
 
-        return projectDTOConverter.convertToResponseDto(project);
+        // IMPORTANT: Do NOT change project status here - status should remain as CREATED
+        // Status will only change when admin explicitly approves via updateProjectStatus()
+        log.info("Project status before save: {} (will remain unchanged)", project.getStatus());
+        
+        // Save the project with all relationships (status remains unchanged)
+        Project savedProject = projectRepository.save(project);
+        log.info("Project saved with ID: {} (status remains: {})", savedProject.getProjectId(), savedProject.getStatus());
+        
+        // Flush to ensure data is written to database immediately
+        projectRepository.flush();
+        
+        // Verify what was saved by reloading from database (ensures we get fresh data from DB)
+        // Note: We don't fetch tasks to avoid MultipleBagFetchException
+        Project verifiedProject = projectRepository.findByIdWithDetails(projectId)
+                .orElseThrow(() -> new ProjectNotFoundException("Project not found after save: " + projectId));
+        
+        // Initialize tasks lazily if needed (they will be loaded when accessed)
+        // Accessing tasks here ensures they're loaded within the transaction
+        if (verifiedProject.getTasks() != null) {
+            verifiedProject.getTasks().size(); // Force lazy loading
+        }
+        
+        log.info("=== VERIFICATION OF SAVED DATA ===");
+        log.info("Assigned employees count: {}", verifiedProject.getAssignedEmployees().size());
+        log.info("Assigned employee IDs: {}", verifiedProject.getAssignedEmployees().stream()
+                .map(Employee::getEmployeeId)
+                .toList());
+        
+        if (verifiedProject.getMainRepresentativeEmployee() != null) {
+            Long mainRepId = verifiedProject.getMainRepresentativeEmployee().getEmployeeId();
+            log.info("Main representative ID: {}", mainRepId);
+            
+            boolean mainRepInAssignedList = verifiedProject.getAssignedEmployees().stream()
+                    .anyMatch(e -> e.getEmployeeId().equals(mainRepId));
+            log.info("Main representative in assigned employees list: {}", mainRepInAssignedList);
+            
+            if (!mainRepInAssignedList) {
+                log.error("ERROR: Main representative (ID: {}) is NOT in the assigned employees list!", mainRepId);
+                throw new IllegalStateException("Main representative must be in the assigned employees list");
+            }
+        } else {
+            log.warn("WARNING: Main representative is NULL after save!");
+            if (!verifiedProject.getAssignedEmployees().isEmpty()) {
+                log.error("ERROR: Employees were assigned but main representative is NULL!");
+            }
+        }
+        
+        log.info("=== VERIFICATION COMPLETE ===");
+        log.info("All employees (including main representative) saved successfully to project {}", projectId);
+
+        return projectDTOConverter.convertToResponseDto(verifiedProject);
     }
 
 

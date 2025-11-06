@@ -33,7 +33,28 @@ public interface ProjectRepository extends JpaRepository<Project, Long> {
            "LEFT JOIN FETCH c.user " +
            "LEFT JOIN FETCH p.vehicle " +
            "LEFT JOIN FETCH p.appointment " +
+           "LEFT JOIN FETCH p.assignedEmployees " +
+           "LEFT JOIN FETCH p.mainRepresentativeEmployee " +
            "WHERE c.customerId = :customerId")
     List<Project> findAllByCustomerIdWithDetails(@Param("customerId") Long customerId);
+
+    @Query("SELECT DISTINCT p FROM Project p " +
+           "LEFT JOIN FETCH p.customer c " +
+           "LEFT JOIN FETCH c.user " +
+           "LEFT JOIN FETCH p.vehicle " +
+           "LEFT JOIN FETCH p.appointment " +
+           "LEFT JOIN FETCH p.assignedEmployees " +
+           "LEFT JOIN FETCH p.mainRepresentativeEmployee")
+    List<Project> findAllWithDetails();
+
+    @Query("SELECT DISTINCT p FROM Project p " +
+           "LEFT JOIN FETCH p.customer c " +
+           "LEFT JOIN FETCH c.user " +
+           "LEFT JOIN FETCH p.vehicle " +
+           "LEFT JOIN FETCH p.appointment " +
+           "LEFT JOIN FETCH p.assignedEmployees " +
+           "LEFT JOIN FETCH p.mainRepresentativeEmployee " +
+           "WHERE p.projectId = :projectId")
+    Optional<Project> findByIdWithDetails(@Param("projectId") Long projectId);
 
 }

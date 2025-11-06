@@ -74,6 +74,10 @@ public class Project {
     @Builder.Default
     private List<Employee> assignedEmployees = new ArrayList<>();
 
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "main_representative_employee_id")
+    private Employee mainRepresentativeEmployee;
+
     // 🆕 Additional fields
     @ElementCollection
     @CollectionTable(

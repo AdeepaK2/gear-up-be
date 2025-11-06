@@ -248,7 +248,11 @@ public class ProjectController {
                         @PathVariable Long projectId,
                         @Valid @RequestBody AssignEmployeesDTO dto,
                         HttpServletRequest request) {
-                ProjectResponseDTO updatedProject = projectService.assignEmployees(projectId, dto.getEmployeeIds());
+                ProjectResponseDTO updatedProject = projectService.assignEmployees(
+                        projectId, 
+                        dto.getEmployeeIds(), 
+                        dto.getMainRepresentativeEmployeeId()
+                );
 
                 ApiResponseDTO<ProjectResponseDTO> response = ApiResponseDTO.<ProjectResponseDTO>builder()
                                 .status("success")

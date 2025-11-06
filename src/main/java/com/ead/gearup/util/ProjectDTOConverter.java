@@ -98,6 +98,31 @@ public class ProjectDTOConverter {
             e.printStackTrace();
         }
 
+        try {
+            if (project.getAssignedEmployees() != null) {
+                List<Long> assignedEmployeeIds = project.getAssignedEmployees().stream()
+                        .map(employee -> employee.getEmployeeId())
+                        .toList();
+                dto.setAssignedEmployeeIds(assignedEmployeeIds);
+            } else {
+                dto.setAssignedEmployeeIds(List.of());
+            }
+        } catch (Exception e) {
+            System.err.println("Error accessing assigned employees for project " + project.getProjectId() + ": " + e.getMessage());
+            dto.setAssignedEmployeeIds(List.of());
+        }
+
+        try {
+            if (project.getMainRepresentativeEmployee() != null) {
+                dto.setMainRepresentativeEmployeeId(project.getMainRepresentativeEmployee().getEmployeeId());
+            } else {
+                dto.setMainRepresentativeEmployeeId(null);
+            }
+        } catch (Exception e) {
+            System.err.println("Error accessing main representative employee for project " + project.getProjectId() + ": " + e.getMessage());
+            dto.setMainRepresentativeEmployeeId(null);
+        }
+
         return dto;
     }
 

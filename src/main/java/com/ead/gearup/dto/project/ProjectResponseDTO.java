@@ -21,4 +21,6 @@ public class ProjectResponseDTO {
     private Long appointmentId;
 
     private List<Long> taskIds;
+    private List<Long> assignedEmployeeIds;
+    private Long mainRepresentativeEmployeeId;
 }
