@@ -72,7 +72,7 @@ class NotificationControllerIntegrationTest {
                 .build();
     }
 
-    // ========== POST /api/notifications (Create Notification) ==========
+    // ========== POST /api/v1/notifications (Create Notification) ==========
 
     @Test
     @WithMockUser(roles = "ADMIN")
@@ -82,7 +82,7 @@ class NotificationControllerIntegrationTest {
                 .thenReturn(testNotification);
 
         // Act & Assert: Make HTTP POST request and verify response
-        mockMvc.perform(post("/api/notifications")
+        mockMvc.perform(post("/api/v1/notifications")
                 .contentType(MediaType.APPLICATION_JSON)
                 .content(objectMapper.writeValueAsString(createRequest)))
                 .andExpect(status().isCreated()) // HTTP 201
@@ -111,7 +111,7 @@ class NotificationControllerIntegrationTest {
 
         // Act & Assert: Should return validation error (or pass if validation isn't enforced)
         // Note: Actual behavior depends on @NotNull/@NotBlank validation on CreateNotificationDTO
-        mockMvc.perform(post("/api/notifications")
+        mockMvc.perform(post("/api/v1/notifications")
                 .contentType(MediaType.APPLICATION_JSON)
                 .content(objectMapper.writeValueAsString(invalidRequest)));
         
@@ -120,7 +120,7 @@ class NotificationControllerIntegrationTest {
     @Test
     void testCreateNotification_Unauthorized_NoAuth() throws Exception {
         // Act & Assert: Request without authentication should fail
-        mockMvc.perform(post("/api/notifications")
+        mockMvc.perform(post("/api/v1/notifications")
                 .contentType(MediaType.APPLICATION_JSON)
                 .content(objectMapper.writeValueAsString(createRequest)))
                 .andExpect(status().isUnauthorized()); // HTTP 401
@@ -128,7 +128,7 @@ class NotificationControllerIntegrationTest {
         verify(notificationService, never()).createAndSendNotification(any());
     }
 
-    // ========== GET /api/notifications (Get Notifications with Pagination) ==========
+    // ========== GET /api/v1/notifications (Get Notifications with Pagination) ==========
 
     @Test
     @WithMockUser(username = "testuser", roles = "PUBLIC")
@@ -142,7 +142,7 @@ class NotificationControllerIntegrationTest {
                 .thenReturn(notificationPage);
 
         // NEW: No userId in path!
-        mockMvc.perform(get("/api/notifications")
+        mockMvc.perform(get("/api/v1/notifications")
                 .param("page", "0")
                 .param("size", "10")
                 .contentType(MediaType.APPLICATION_JSON))
@@ -168,7 +168,7 @@ class NotificationControllerIntegrationTest {
                 .thenReturn(notificationPage);
 
         // Act & Assert: Test with query parameters for filtering
-        mockMvc.perform(get("/api/notifications")
+        mockMvc.perform(get("/api/v1/notifications")
                 .param("page", "0")
                 .param("size", "10")
                 .param("type", "SYSTEM")
@@ -181,7 +181,7 @@ class NotificationControllerIntegrationTest {
                 eq("1"), eq(0), eq(10), anyString(), anyString(), eq("SYSTEM"), eq(false));
     }
 
-    // ========== GET /api/notifications/unread (Get Unread Notifications) ==========
+    // ========== GET /api/v1/notifications/unread (Get Unread Notifications) ==========
 
     @Test
     @WithMockUser(username = "testuser", roles = "PUBLIC")
@@ -191,7 +191,7 @@ class NotificationControllerIntegrationTest {
                 .thenReturn(unreadNotifications);
 
         // NEW: No userId in path!
-        mockMvc.perform(get("/api/notifications/unread")
+        mockMvc.perform(get("/api/v1/notifications/unread")
                 .contentType(MediaType.APPLICATION_JSON))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.status").value("success"))
@@ -202,7 +202,7 @@ class NotificationControllerIntegrationTest {
         verify(notificationService, times(1)).getUnreadNotifications("1");
     }
 
-    // ========== GET /api/notifications/unread/count (Get Unread Count) ==========
+    // ========== GET /api/v1/notifications/unread/count (Get Unread Count) ==========
 
     @Test
     @WithMockUser(username = "testuser", roles = "PUBLIC")
@@ -210,7 +210,7 @@ class NotificationControllerIntegrationTest {
         when(notificationService.getUnreadCount("1")).thenReturn(5L);
 
         // NEW: No userId in path!
-        mockMvc.perform(get("/api/notifications/unread/count")
+        mockMvc.perform(get("/api/v1/notifications/unread/count")
                 .contentType(MediaType.APPLICATION_JSON))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.status").value("success"))
@@ -225,13 +225,13 @@ class NotificationControllerIntegrationTest {
         when(notificationService.getUnreadCount("1")).thenReturn(0L);
 
         // NEW: No userId in path!
-        mockMvc.perform(get("/api/notifications/unread/count")
+        mockMvc.perform(get("/api/v1/notifications/unread/count")
                 .contentType(MediaType.APPLICATION_JSON))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.data").value(0));
     }
 
-    // ========== PATCH /api/notifications/{id}/read (Mark as Read) ==========
+    // ========== PATCH /api/v1/notifications/{id}/read (Mark as Read) ==========
 
     @Test
     @WithMockUser(username = "testuser", roles = "PUBLIC")
@@ -239,7 +239,7 @@ class NotificationControllerIntegrationTest {
         doNothing().when(notificationService).markAsRead(1L, "1");
 
         // NEW: No userId parameter!
-        mockMvc.perform(patch("/api/notifications/1/read")
+        mockMvc.perform(patch("/api/v1/notifications/1/read")
                 .contentType(MediaType.APPLICATION_JSON))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.status").value("success"))
@@ -256,7 +256,7 @@ class NotificationControllerIntegrationTest {
                 .when(notificationService).markAsRead(999L, "1");
 
         // Act & Assert - Note: App returns 500 for ResourceNotFoundException (not 404)
-        mockMvc.perform(patch("/api/notifications/999/read")
+        mockMvc.perform(patch("/api/v1/notifications/999/read")
                 .contentType(MediaType.APPLICATION_JSON))
                 .andExpect(status().isInternalServerError()); // HTTP 500 (actual behavior)
 
@@ -270,14 +270,14 @@ class NotificationControllerIntegrationTest {
         doThrow(new IllegalArgumentException("Notification does not belong to user"))
                 .when(notificationService).markAsRead(1L, "1");
 
-        mockMvc.perform(patch("/api/notifications/1/read")
+        mockMvc.perform(patch("/api/v1/notifications/1/read")
                 .contentType(MediaType.APPLICATION_JSON))
                 .andExpect(status().isBadRequest()); // HTTP 400
 
         verify(notificationService, times(1)).markAsRead(1L, "1");
     }
 
-    // ========== PATCH /api/notifications/read-all (Mark All as Read) ==========
+    // ========== PATCH /api/v1/notifications/read-all (Mark All as Read) ==========
 
     @Test
     @WithMockUser(username = "testuser", roles = "PUBLIC")
@@ -285,7 +285,7 @@ class NotificationControllerIntegrationTest {
         doNothing().when(notificationService).markAllAsRead("1");
 
         // NEW: No userId in path!
-        mockMvc.perform(patch("/api/notifications/read-all")
+        mockMvc.perform(patch("/api/v1/notifications/read-all")
                 .contentType(MediaType.APPLICATION_JSON))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.status").value("success"))
@@ -294,7 +294,7 @@ class NotificationControllerIntegrationTest {
         verify(notificationService, times(1)).markAllAsRead("1");
     }
 
-    // ========== DELETE /api/notifications/{id} (Delete Notification) ==========
+    // ========== DELETE /api/v1/notifications/{id} (Delete Notification) ==========
 
     @Test
     @WithMockUser(username = "testuser", roles = "PUBLIC")
@@ -302,7 +302,7 @@ class NotificationControllerIntegrationTest {
         doNothing().when(notificationService).deleteNotification(1L, "1");
 
         // NEW: No userId parameter!
-        mockMvc.perform(delete("/api/notifications/1")
+        mockMvc.perform(delete("/api/v1/notifications/1")
                 .contentType(MediaType.APPLICATION_JSON))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.status").value("success"))
@@ -318,14 +318,14 @@ class NotificationControllerIntegrationTest {
                 .when(notificationService).deleteNotification(999L, "1");
 
         // Act & Assert - Note: App returns 500 for ResourceNotFoundException (not 404)
-        mockMvc.perform(delete("/api/notifications/999")
+        mockMvc.perform(delete("/api/v1/notifications/999")
                 .contentType(MediaType.APPLICATION_JSON))
                 .andExpect(status().isInternalServerError()); // HTTP 500 (actual behavior)
 
         verify(notificationService, times(1)).deleteNotification(999L, "1");
     }
 
-    // ========== DELETE /api/notifications/all (Delete All Notifications) ==========
+    // ========== DELETE /api/v1/notifications/all (Delete All Notifications) ==========
 
     @Test
     @WithMockUser(username = "testuser", roles = "PUBLIC")
@@ -333,7 +333,7 @@ class NotificationControllerIntegrationTest {
         doNothing().when(notificationService).deleteAllForUser("1");
 
         // NEW: No userId in path!
-        mockMvc.perform(delete("/api/notifications/all")
+        mockMvc.perform(delete("/api/v1/notifications/all")
                 .contentType(MediaType.APPLICATION_JSON))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.status").value("success"))
@@ -347,7 +347,7 @@ class NotificationControllerIntegrationTest {
     @Test
     void testGetNotifications_Unauthorized() throws Exception {
         // Act & Assert: Request without authentication
-        mockMvc.perform(get("/api/notifications")
+        mockMvc.perform(get("/api/v1/notifications")
                 .contentType(MediaType.APPLICATION_JSON))
                 .andExpect(status().isUnauthorized());
 
@@ -362,7 +362,7 @@ class NotificationControllerIntegrationTest {
         doNothing().when(notificationService).markAsRead(-1L, "1");
         
         // Act & Assert: Controller accepts negative ID, validation would be at service layer
-        mockMvc.perform(patch("/api/notifications/-1/read")
+        mockMvc.perform(patch("/api/v1/notifications/-1/read")
                 .contentType(MediaType.APPLICATION_JSON))
                 .andExpect(status().isOk()); // HTTP 200 (controller doesn't validate ID)
         
@@ -380,7 +380,7 @@ class NotificationControllerIntegrationTest {
                 eq("1"), eq(100), eq(10), anyString(), anyString(), eq(null), eq(null)))
                 .thenReturn(emptyPage);
 
-        mockMvc.perform(get("/api/notifications")
+        mockMvc.perform(get("/api/v1/notifications")
                 .param("page", "100")
                 .param("size", "10")
                 .contentType(MediaType.APPLICATION_JSON))
@@ -396,7 +396,7 @@ class NotificationControllerIntegrationTest {
         when(notificationService.getUnreadNotifications("1"))
                 .thenReturn(Arrays.asList());
 
-        mockMvc.perform(get("/api/notifications/unread")
+        mockMvc.perform(get("/api/v1/notifications/unread")
                 .contentType(MediaType.APPLICATION_JSON))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.data").isArray())

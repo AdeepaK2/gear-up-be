@@ -21,7 +21,7 @@ import com.ead.gearup.service.auth.CurrentUserService;
 import java.util.List;
 
 @RestController
-@RequestMapping("/api/notifications")
+@RequestMapping("/api/v1/notifications")
 @RequiredArgsConstructor
 @Tag(name = "Notifications", description = "Real-time notification management via SSE")
 public class NotificationController {
