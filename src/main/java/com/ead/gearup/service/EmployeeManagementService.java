@@ -33,25 +33,44 @@ public class EmployeeManagementService {
 
     @Transactional
     public CreateEmployeeResponse createEmployee(CreateEmployeeRequest request) {
-        // Check if email already exists in the system (any user with this email)
-        if (userRepository.existsByEmail(request.getEmail())) {
-            throw new EmailAlreadyExistsException(request.getEmail());
-        }
-
         // Generate temporary password
         String temporaryPassword = generateTemporaryPassword();
 
-        // Create employee user
-        User employee = new User();
-        employee.setEmail(request.getEmail());
-        employee.setName(request.getName());
-        employee.setPassword(passwordEncoder.encode(temporaryPassword));
-        employee.setRole(UserRole.EMPLOYEE);
-        employee.setIsVerified(true); // Auto-verify employee accounts
-        employee.setIsActive(true);
-        employee.setRequiresPasswordChange(true); // Force password change on first login
-        employee.setCreatedAt(LocalDateTime.now());
-        
+        User employee;
+
+        // Check if user with this email already exists
+        if (userRepository.existsByEmail(request.getEmail())) {
+            // Try to find and reactivate existing user if they're inactive or not an employee
+            User existingUser = userRepository.findByEmail(request.getEmail())
+                .orElseThrow(() -> new EmailAlreadyExistsException(request.getEmail()));
+
+            // Only allow reactivation if the user is not currently an active employee
+            if (existingUser.getRole() == UserRole.EMPLOYEE && existingUser.getIsActive()) {
+                throw new EmailAlreadyExistsException(request.getEmail());
+            }
+
+            // Reactivate and update the existing user
+            log.info("Reactivating existing user {} as employee", request.getEmail());
+            employee = existingUser;
+            employee.setName(request.getName());
+            employee.setPassword(passwordEncoder.encode(temporaryPassword));
+            employee.setRole(UserRole.EMPLOYEE);
+            employee.setIsVerified(true);
+            employee.setIsActive(true);
+            employee.setRequiresPasswordChange(true);
+        } else {
+            // Create new employee user
+            employee = new User();
+            employee.setEmail(request.getEmail());
+            employee.setName(request.getName());
+            employee.setPassword(passwordEncoder.encode(temporaryPassword));
+            employee.setRole(UserRole.EMPLOYEE);
+            employee.setIsVerified(true); // Auto-verify employee accounts
+            employee.setIsActive(true);
+            employee.setRequiresPasswordChange(true); // Force password change on first login
+            employee.setCreatedAt(LocalDateTime.now());
+        }
+
         // Set additional employee-specific fields if your User entity has them
         // employee.setEmployeeRole(request.getRole());
         // employee.setSpecialization(request.getSpecialization());
@@ -92,6 +111,7 @@ public class EmployeeManagementService {
 
     public List<EmployeeDTO> getAllEmployees() {
         return userRepository.findByRole(UserRole.EMPLOYEE).stream()
+                .filter(user -> user.getIsActive()) // Only show active employees
                 .map(user -> EmployeeDTO.builder()
                         .id(user.getUserId())
                         .name(user.getName())
