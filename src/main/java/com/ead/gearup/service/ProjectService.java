@@ -16,6 +16,7 @@ import com.ead.gearup.model.*;
 import com.ead.gearup.repository.*;
 import com.ead.gearup.service.auth.CurrentUserService;
 import com.ead.gearup.util.TaskDTOConverter;
+import com.ead.gearup.util.NotificationPublisher;
 import com.ead.gearup.validation.RequiresRole;
 
 import com.ead.gearup.util.ProjectDTOConverter;
@@ -48,6 +49,8 @@ public class ProjectService {
     private final TaskDTOConverter taskDTOConverter;
     private final ProjectUpdateRepository projectUpdateRepository;
     private final com.fasterxml.jackson.databind.ObjectMapper objectMapper;
+    private final NotificationPublisher notificationPublisher;
+    private final UserRepository userRepository;
 
 
     @Transactional
@@ -130,6 +133,11 @@ public class ProjectService {
         Project finalProject = projectRepository.save(savedProject);
         System.out.println("Final project saved with " + finalProject.getTasks().size() + " tasks");
         System.out.println("=== CREATE PROJECT COMPLETED SUCCESSFULLY ===");
+
+        // NOTIFICATION: Notify all admins when a customer creates a project
+        if (role == UserRole.CUSTOMER) {
+            notifyAdminsAboutNewProject(finalProject);
+        }
 
         return projectDTOConverter.convertToResponseDto(finalProject);
     }
@@ -488,6 +496,9 @@ public class ProjectService {
         Project savedProject = projectRepository.save(project);
         log.info("Project report submitted successfully for project ID: {} and sent to customer", projectId);
 
+        // NOTIFICATION: Notify customer that their project report is ready
+        notifyCustomerAboutProjectReport(savedProject);
+
         return projectDTOConverter.convertToResponseDto(savedProject);
     }
 
@@ -796,6 +807,9 @@ public class ProjectService {
         log.info("=== VERIFICATION COMPLETE ===");
         log.info("All employees (including main representative) saved successfully to project {}", projectId);
 
+        // NOTIFICATION #1: Notify all assigned employees about their assignment
+        notifyEmployeesAboutProjectAssignment(verifiedProject, employees);
+
         return projectDTOConverter.convertToResponseDto(verifiedProject);
     }
 
@@ -952,6 +966,80 @@ public class ProjectService {
                 .createdAt(update.getCreatedAt())
                 .updatedAt(update.getUpdatedAt())
                 .build();
+    }
+
+    // ========== NOTIFICATION HELPER METHODS ==========
+
+    /**
+     * NOTIFICATION #1: Notify employees when they are assigned to a project
+     */
+    private void notifyEmployeesAboutProjectAssignment(Project project, List<Employee> employees) {
+        try {
+            for (Employee employee : employees) {
+                if (employee.getUser() != null) {
+                    String title = "New Project Assignment";
+                    String message = "You have been assigned to project: " + project.getName();
+                    
+                    notificationPublisher.publishTaskNotification(
+                        employee.getUser().getUserId().toString(),
+                        title,
+                        message
+                    );
+                }
+            }
+            log.info("Notified {} employee(s) about project assignment", employees.size());
+        } catch (Exception e) {
+            log.error("Failed to send project assignment notifications", e);
+        }
+    }
+
+    /**
+     * NOTIFICATION #2: Notify customer when project report is submitted
+     */
+    private void notifyCustomerAboutProjectReport(Project project) {
+        try {
+            if (project.getCustomer() != null && project.getCustomer().getUser() != null) {
+                String title = "Project Report Available";
+                String message = "Your project '" + project.getName() + "' report is ready for review";
+                
+                notificationPublisher.publishProjectNotification(
+                    project.getCustomer().getUser().getUserId().toString(),
+                    title,
+                    message
+                );
+                log.info("Notified customer {} about project report", 
+                    project.getCustomer().getUser().getName());
+            }
+        } catch (Exception e) {
+            log.error("Failed to send project report notification to customer", e);
+        }
+    }
+
+    /**
+     * NOTIFICATION #3: Notify admins when a customer creates a project
+     */
+    private void notifyAdminsAboutNewProject(Project project) {
+        try {
+            List<User> adminUsers = userRepository.findByRole(UserRole.ADMIN);
+            if (!adminUsers.isEmpty() && project.getCustomer() != null 
+                && project.getCustomer().getUser() != null) {
+                
+                String title = "New Project Created";
+                String message = "Customer " + project.getCustomer().getUser().getName() 
+                    + " created project: " + project.getName();
+                
+                for (User admin : adminUsers) {
+                    notificationPublisher.publishProjectNotification(
+                        admin.getUserId().toString(),
+                        title,
+                        message
+                    );
+                }
+                log.info("Notified {} admin(s) about new project creation", adminUsers.size());
+            }
+        } catch (Exception e) {
+            log.error("Failed to send new project notifications to admins", e);
+        }
     }
 
 
