@@ -22,8 +22,8 @@
 
 **GraphQL Tests:**
 
-- SearchGraphQLController - GraphQL search queries
-- GraphQLHealthCheckController - GraphQL health checks
+- ✅ SearchGraphQLController - GraphQL search queries
+- ✅ GraphQLHealthCheckController - GraphQL health checks
 
 ---
 
@@ -41,14 +41,17 @@ src/test/java/com/ead/gearup/
 │       ├── TimeLogServiceUnitTest.java         ✅ COMPLETE (12 tests)
 │       └── EmployeeServiceUnitTest.java        ✅ COMPLETE (21 tests)
 ├── integration/
-│   └── controller/
-│       ├── CustomerControllerIntegrationTest.java        ✅ COMPLETE (17 tests)
-│       ├── VehicleControllerIntegrationTest.java         ✅ COMPLETE (17 tests)
-│       ├── AppointmentControllerIntegrationTest.java     ✅ COMPLETE (20 tests)
-│       ├── ProjectControllerIntegrationTest.java         ✅ COMPLETE (18 tests)
-│       ├── TaskControllerIntegrationTest.java            ✅ COMPLETE (18 tests)
-│       ├── TimeLogControllerIntegrationTest.java         ✅ COMPLETE (17 tests)
-│       └── EmployeeControllerIntegrationTest.java        ✅ COMPLETE (19 tests)
+│   ├── controller/
+│   │   ├── CustomerControllerIntegrationTest.java        ✅ COMPLETE (17 tests)
+│   │   ├── VehicleControllerIntegrationTest.java         ✅ COMPLETE (17 tests)
+│   │   ├── AppointmentControllerIntegrationTest.java     ✅ COMPLETE (20 tests)
+│   │   ├── ProjectControllerIntegrationTest.java         ✅ COMPLETE (18 tests)
+│   │   ├── TaskControllerIntegrationTest.java            ✅ COMPLETE (18 tests)
+│   │   ├── TimeLogControllerIntegrationTest.java         ✅ COMPLETE (17 tests)
+│   │   └── EmployeeControllerIntegrationTest.java        ✅ COMPLETE (19 tests)
+│   └── graphql/
+│       ├── SearchGraphQLControllerTest.java              ✅ COMPLETE (14 tests)
+│       └── GraphQLHealthCheckControllerTest.java         ✅ COMPLETE (5 tests)
 ├── fixtures/           # Test data builders
 └── helpers/            # Test utility classes
 ```
@@ -130,6 +133,48 @@ class CustomerControllerIntegrationTest {
 }
 ```
 
+### 3. **GraphQL Tests** (GraphQL Controller Layer)
+
+**Purpose:** Test GraphQL query endpoints
+**Characteristics:**
+
+- Uses Spring Boot Test context
+- Direct controller method invocation
+- Tests GraphQL query logic
+- Validates search functionality
+
+**Example Pattern:**
+
+```java
+@SpringBootTest
+class SearchGraphQLControllerTest {
+    @Autowired
+    private SearchGraphQLController controller;
+
+    @MockBean
+    private CustomerService customerService;
+
+    @Test
+    void testSearchCustomers_Success() {
+        // Arrange
+        List<CustomerSearchResponseDTO> customers =
+            Arrays.asList(testCustomer);
+        when(customerService.searchCustomersByCustomerName("John"))
+            .thenReturn(customers);
+
+        // Act
+        List<CustomerSearchResponseDTO> result =
+            controller.searchCustomersByCustomerName("John");
+
+        // Assert
+        assertNotNull(result);
+        assertEquals(1, result.size());
+        verify(customerService, times(1))
+            .searchCustomersByCustomerName("John");
+    }
+}
+```
+
 ---
 
 ## ▶️ Running Tests
@@ -156,6 +201,12 @@ mvn test -Dtest="*ServiceUnitTest"
 
 ```powershell
 mvn test -Dtest="*ControllerIntegrationTest"
+```
+
+### Run All GraphQL Tests
+
+```powershell
+mvn test -Dtest="*GraphQL*Test"
 ```
 
 ### Run With Coverage Report
@@ -518,21 +569,196 @@ assertAll(
 
 ### GraphQL Tests
 
-- [ ] SearchGraphQLController
-- [ ] GraphQLHealthCheckController
+- [x] SearchGraphQLController (14 tests)
+- [x] GraphQLHealthCheckController (5 tests)
 
 ---
 
-## 🎓 Learning Outcomes
+## � GraphQL Testing Guide
+
+### SearchGraphQLController Tests (14 tests)
+
+**Tested Queries:**
+
+- `searchAppointmentsByCustomerName` - Find appointments by customer name
+- `searchCustomersByCustomerName` - Find customers by name
+- `searchEmployeesByEmployeeName` - Find employees by name
+- `searchTasksByTaskName` - Find tasks by name
+
+**Test Coverage for Each Query:**
+
+```java
+@SpringBootTest
+@SuppressWarnings("removal")
+class SearchGraphQLControllerTest {
+
+    @Autowired
+    private SearchGraphQLController searchGraphQLController;
+
+    @MockBean
+    private AppointmentService appointmentService;
+
+    @Test
+    void testSearchAppointmentsByCustomerName_Success() {
+        // Arrange
+        List<AppointmentSearchResponseDTO> appointments =
+            Arrays.asList(testAppointment);
+        when(appointmentService.searchAppointmentsByCustomerName("John"))
+            .thenReturn(appointments);
+
+        // Act
+        List<AppointmentSearchResponseDTO> result =
+            searchGraphQLController.searchAppointmentsByCustomerName("John");
+
+        // Assert
+        assertNotNull(result);
+        assertEquals(1, result.size());
+        verify(appointmentService, times(1))
+            .searchAppointmentsByCustomerName("John");
+    }
+
+    @Test
+    void testSearchAppointmentsByCustomerName_EmptyResult() {
+        // Test when no results found
+        when(appointmentService.searchAppointmentsByCustomerName("NonExistent"))
+            .thenReturn(Arrays.asList());
+
+        List<AppointmentSearchResponseDTO> result =
+            searchGraphQLController.searchAppointmentsByCustomerName("NonExistent");
+
+        assertNotNull(result);
+        assertTrue(result.isEmpty());
+    }
+
+    @Test
+    void testSearchAppointmentsByCustomerName_MultipleResults() {
+        // Test when multiple results found
+        List<AppointmentSearchResponseDTO> appointments =
+            Arrays.asList(appointment1, appointment2);
+        when(appointmentService.searchAppointmentsByCustomerName("John"))
+            .thenReturn(appointments);
+
+        List<AppointmentSearchResponseDTO> result =
+            searchGraphQLController.searchAppointmentsByCustomerName("John");
+
+        assertEquals(2, result.size());
+    }
+}
+```
+
+### GraphQLHealthCheckController Tests (5 tests)
+
+**Tested Query:**
+
+- `healthCheck` - Verify GraphQL endpoint is operational
+
+**Test Coverage:**
+
+```java
+@SpringBootTest
+class GraphQLHealthCheckControllerTest {
+
+    @Autowired
+    private GraphQLHealthCheckController graphQLHealthCheckController;
+
+    @Test
+    void testHealthCheck_Success() {
+        String result = graphQLHealthCheckController.healthCheck();
+
+        assertNotNull(result);
+        assertEquals("GraphQL is working successfully", result);
+    }
+
+    @Test
+    void testHealthCheck_ReturnsNonNullValue() {
+        String result = graphQLHealthCheckController.healthCheck();
+
+        assertNotNull(result);
+        assertFalse(result.isEmpty());
+    }
+
+    @Test
+    void testHealthCheck_MultipleCalls_ReturnsSameResult() {
+        // Test idempotency
+        String result1 = graphQLHealthCheckController.healthCheck();
+        String result2 = graphQLHealthCheckController.healthCheck();
+        String result3 = graphQLHealthCheckController.healthCheck();
+
+        assertEquals(result1, result2);
+        assertEquals(result2, result3);
+    }
+}
+```
+
+### GraphQL Test Patterns
+
+**Pattern 1: Success Scenario**
+
+```java
+@Test
+void testSearch_Success() {
+    // Arrange - Mock service to return results
+    when(service.searchMethod("query")).thenReturn(expectedResults);
+
+    // Act - Call controller method
+    List<ResponseDTO> result = controller.searchMethod("query");
+
+    // Assert - Verify results and service interaction
+    assertNotNull(result);
+    assertEquals(expectedSize, result.size());
+    verify(service, times(1)).searchMethod("query");
+}
+```
+
+**Pattern 2: Empty Results**
+
+```java
+@Test
+void testSearch_EmptyResult() {
+    // Arrange - Mock service to return empty list
+    when(service.searchMethod("nonexistent")).thenReturn(Arrays.asList());
+
+    // Act
+    List<ResponseDTO> result = controller.searchMethod("nonexistent");
+
+    // Assert - Verify empty list returned
+    assertNotNull(result);
+    assertTrue(result.isEmpty());
+}
+```
+
+**Pattern 3: Multiple Results**
+
+```java
+@Test
+void testSearch_MultipleResults() {
+    // Arrange - Mock service to return multiple items
+    List<ResponseDTO> items = Arrays.asList(item1, item2, item3);
+    when(service.searchMethod("query")).thenReturn(items);
+
+    // Act
+    List<ResponseDTO> result = controller.searchMethod("query");
+
+    // Assert - Verify all items returned
+    assertEquals(3, result.size());
+    assertEquals(item1.getId(), result.get(0).getId());
+    assertEquals(item2.getId(), result.get(1).getId());
+}
+```
+
+---
+
+## �🎓 Learning Outcomes
 
 After completing this testing assignment, you will have learned:
 
 1. ✅ **Unit Testing** - Testing business logic in isolation
 2. ✅ **Mocking** - Using Mockito to mock dependencies
 3. ✅ **Integration Testing** - Testing REST endpoints with MockMvc
-4. ✅ **Test Coverage** - Measuring and improving code coverage
-5. ✅ **Spring Boot Testing** - Using Spring Boot test framework
-6. ✅ **Best Practices** - Writing maintainable and readable tests
+4. ✅ **GraphQL Testing** - Testing GraphQL query endpoints
+5. ✅ **Test Coverage** - Measuring and improving code coverage
+6. ✅ **Spring Boot Testing** - Using Spring Boot test framework
+7. ✅ **Best Practices** - Writing maintainable and readable tests
 
 ---
 
@@ -546,6 +772,15 @@ mvn test
 
 # Run specific test
 mvn test -Dtest=CustomerServiceUnitTest
+
+# Run all service unit tests
+mvn test -Dtest="*ServiceUnitTest"
+
+# Run all controller integration tests
+mvn test -Dtest="*ControllerIntegrationTest"
+
+# Run all GraphQL tests
+mvn test -Dtest="*GraphQL*Test"
 
 # Run with coverage
 mvn clean test jacoco:report
