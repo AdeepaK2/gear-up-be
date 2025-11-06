@@ -467,31 +467,62 @@ public class ProjectService {
     @Transactional
     @RequiresRole({UserRole.CUSTOMER, UserRole.ADMIN})
     public List<ProjectResponseDTO> getProjectsWithReportsForCurrentCustomer() {
-        Long customerId = currentUserService.getCurrentEntityId();
-        log.info("=== GET PROJECTS WITH REPORTS FOR CUSTOMER ===");
-        log.info("Customer ID: {}", customerId);
+        try {
+            Long customerId = currentUserService.getCurrentEntityId();
+            log.info("=== GET PROJECTS WITH REPORTS FOR CUSTOMER ===");
+            log.info("Customer ID: {}", customerId);
 
-        if (customerId == null) {
-            log.warn("Customer ID is null for current user");
-            throw new CustomerNotFoundException("Customer not found for current user");
-        }
-
-        List<Project> projects = projectRepository.findProjectsWithReportsByCustomerId(customerId, ProjectStatus.COMPLETED);
-        log.info("Projects with reports found: {}", projects.size());
-
-        // Initialize tasks for each project (lazy loading within transaction)
-        projects.forEach(project -> {
-            if (project.getTasks() != null) {
-                project.getTasks().size(); // Force lazy loading
+            if (customerId == null) {
+                log.warn("Customer ID is null for current user");
+                throw new CustomerNotFoundException("Customer not found for current user");
             }
-        });
 
-        List<ProjectResponseDTO> result = projects.stream()
-                .map(projectDTOConverter::convertToResponseDto)
-                .toList();
+            List<Project> projects = projectRepository.findProjectsWithReportsByCustomerId(customerId, ProjectStatus.COMPLETED);
+            log.info("Projects with reports found: {}", projects.size());
 
-        log.info("Successfully converted {} projects to DTOs", result.size());
-        return result;
+            if (projects == null || projects.isEmpty()) {
+                log.info("No projects with reports found for customer ID: {}", customerId);
+                return List.of();
+            }
+
+            projects.forEach(project -> {
+                try {
+                    if (project.getTasks() != null) {
+                        project.getTasks().size();
+                    }
+                    if (project.getAssignedEmployees() != null) {
+                        project.getAssignedEmployees().size();
+                    }
+                    if (project.getMainRepresentativeEmployee() != null && project.getMainRepresentativeEmployee().getUser() != null) {
+                        project.getMainRepresentativeEmployee().getUser().getName();
+                    }
+                } catch (Exception e) {
+                    log.warn("Error initializing lazy-loaded relationships for project {}: {}", 
+                            project.getProjectId(), e.getMessage());
+                }
+            });
+
+            List<ProjectResponseDTO> result = projects.stream()
+                    .map(project -> {
+                        try {
+                            return projectDTOConverter.convertToResponseDto(project);
+                        } catch (Exception e) {
+                            log.error("Error converting project {} to DTO: {}", project.getProjectId(), e.getMessage(), e);
+                            return null;
+                        }
+                    })
+                    .filter(dto -> dto != null)
+                    .toList();
+
+            log.info("Successfully converted {} projects to DTOs", result.size());
+            return result;
+        } catch (CustomerNotFoundException e) {
+            log.error("Customer not found: {}", e.getMessage());
+            throw e;
+        } catch (Exception e) {
+            log.error("Unexpected error in getProjectsWithReportsForCurrentCustomer: {}", e.getMessage(), e);
+            throw new RuntimeException("Failed to retrieve projects with reports: " + e.getMessage(), e);
+        }
     }
 
     @Transactional

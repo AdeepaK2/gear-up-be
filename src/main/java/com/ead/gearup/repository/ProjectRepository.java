@@ -76,7 +76,6 @@ public interface ProjectRepository extends JpaRepository<Project, Long> {
            "LEFT JOIN FETCH c.user " +
            "LEFT JOIN FETCH p.vehicle " +
            "LEFT JOIN FETCH p.appointment " +
-           "LEFT JOIN FETCH p.tasks " +
            "LEFT JOIN FETCH p.assignedEmployees " +
            "LEFT JOIN FETCH p.mainRepresentativeEmployee " +
            "WHERE c.customerId = :customerId AND p.reportSentToCustomer = true AND p.status = :status")
