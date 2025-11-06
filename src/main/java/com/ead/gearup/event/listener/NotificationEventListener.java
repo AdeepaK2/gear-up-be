@@ -21,7 +21,9 @@ public class NotificationEventListener {
     @Async
     @EventListener
     public void handleNotificationEvent(NotificationEvent event) {
-        log.info("Processing notification event: {} for user: {}", 
+        long startTime = System.currentTimeMillis();
+        
+        log.info("[NOTIFICATION EVENT] Processing {} for user: {}", 
                 event.getClass().getSimpleName(), event.getUserId());
         
         CreateNotificationDTO notificationDTO = CreateNotificationDTO.builder()
@@ -33,5 +35,9 @@ public class NotificationEventListener {
         
         // Use the async method for event-driven notifications
         notificationService.createAndSendNotificationAsync(notificationDTO);
+        
+        long duration = System.currentTimeMillis() - startTime;
+        log.info("[NOTIFICATION EVENT] Completed in {}ms - Event: {}, User: {}", 
+                duration, event.getClass().getSimpleName(), event.getUserId());
     }
 }
