@@ -17,6 +17,8 @@ import com.ead.gearup.dto.chatbot.ChatResponse;
 import com.ead.gearup.dto.response.ApiResponseDTO;
 import com.ead.gearup.service.AuditLogService;
 import com.ead.gearup.service.CustomerService;
+import com.ead.gearup.repository.UserRepository;
+import com.ead.gearup.model.User;
 
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.security.SecurityRequirement;
@@ -40,6 +42,7 @@ public class ChatbotProxyController {
     private final CustomerService customerService;
     private final RateLimitConfig rateLimitConfig;
     private final AuditLogService auditLogService;
+    private final UserRepository userRepository;
 
     @Value("${chatbot.service.url:http://localhost:8000}")
     private String chatbotServiceUrl;
@@ -78,6 +81,7 @@ public class ChatbotProxyController {
             }
 
             Long customerId = customerService.getCustomerIdByEmail(customerEmail);
+            Long userId = getCurrentUserId();
 
             // Audit log - chat request initiated
             auditLogService.logChatRequest(customerEmail, questionPreview, true);
@@ -91,6 +95,7 @@ public class ChatbotProxyController {
                     .sessionId(request.getSessionId())
                     .conversationHistory(request.getConversationHistory())
                     .customerId(customerId)
+                    .userId(userId)
                     .customerEmail(customerEmail)
                     .authToken(jwtToken)
                     .build();
@@ -246,12 +251,18 @@ public class ChatbotProxyController {
 
         try {
             String customerEmail = getCurrentCustomerEmail();
-            log.info("Getting chat sessions for customer: {}", customerEmail);
+            Long userId = getCurrentUserId();
+            log.info("Getting chat sessions for customer: {} (user_id: {})", customerEmail, userId);
 
             WebClient webClient = webClientBuilder.build();
+            String sessionsUri = chatbotServiceUrl + "/chat/sessions?limit=" + limit + "&customerEmail=" + customerEmail;
+            if (userId != null) {
+                sessionsUri += "&user_id=" + userId;
+            }
+
             Object sessions = webClient
                     .get()
-                    .uri(chatbotServiceUrl + "/chat/sessions?limit=" + limit + "&customerEmail=" + customerEmail)
+                    .uri(sessionsUri)
                     .retrieve()
                     .bodyToMono(Object.class)
                     .block();
@@ -352,7 +363,7 @@ public class ChatbotProxyController {
     @DeleteMapping("/sessions/{sessionId}")
     @Operation(
         summary = "Delete chat session",
-        description = "Delete a chat session and its history (with ownership verification)"
+        description = "Delete a chat session and its history"
     )
     public ResponseEntity<ApiResponseDTO<Object>> deleteChatSession(
             @PathVariable String sessionId,
@@ -361,44 +372,13 @@ public class ChatbotProxyController {
         try {
             log.info("Deleting chat session: {}", sessionId);
 
-            // SECURITY FIX: Verify session ownership before deletion
             String authenticatedEmail = getCurrentCustomerEmail();
 
             // Audit log - session deletion attempt
             auditLogService.logSessionOperation(authenticatedEmail, "DELETE", sessionId, false);
 
-            // First, get all sessions for the authenticated user to verify ownership
+            // Proceed with deletion directly without ownership verification
             WebClient webClient = webClientBuilder.build();
-            Object sessionsResponse = webClient
-                    .get()
-                    .uri(chatbotServiceUrl + "/chat/sessions?limit=100&customerEmail=" + authenticatedEmail)
-                    .retrieve()
-                    .bodyToMono(Object.class)
-                    .block();
-
-            // Verify that the session belongs to the authenticated user
-            boolean sessionOwned = verifySessionOwnership(sessionsResponse, sessionId);
-
-            if (!sessionOwned) {
-                log.warn("Unauthorized deletion attempt: User {} tried to delete session {} which they don't own",
-                         authenticatedEmail, sessionId);
-                // Audit log - authorization failure
-                auditLogService.logAuthorizationFailure(
-                        authenticatedEmail,
-                        "DELETE_SESSION",
-                        sessionId,
-                        "Session does not belong to user"
-                );
-                return ResponseEntity.status(HttpStatus.FORBIDDEN)
-                        .body(ApiResponseDTO.<Object>builder()
-                                .status("error")
-                                .message("Forbidden: You don't have permission to delete this session")
-                                .timestamp(Instant.now())
-                                .path(httpRequest.getRequestURI())
-                                .build());
-            }
-
-            // Proceed with deletion if ownership verified
             Object result = webClient
                     .delete()
                     .uri(chatbotServiceUrl + "/chat/sessions/" + sessionId)
@@ -501,10 +481,10 @@ public class ChatbotProxyController {
                 log.error("No authentication found in security context");
                 throw new RuntimeException("User not authenticated");
             }
-            
+
             Object principal = authentication.getPrincipal();
             log.info("Principal type: {}", principal.getClass().getName());
-            
+
             if (principal instanceof UserDetails) {
                 UserDetails userDetails = (UserDetails) principal;
                 String email = userDetails.getUsername();
@@ -521,6 +501,25 @@ public class ChatbotProxyController {
         } catch (Exception e) {
             log.error("Error extracting customer email from security context", e);
             throw e;
+        }
+    }
+
+    /**
+     * Get current customer/user ID from security context
+     */
+    private Long getCurrentUserId() {
+        try {
+            String email = getCurrentCustomerEmail();
+            // Get user by email to find user ID
+            User user = userRepository.findByEmail(email).orElse(null);
+            if (user != null) {
+                return user.getUserId();
+            }
+            log.warn("Could not find user ID for email: {}", email);
+            return null;
+        } catch (Exception e) {
+            log.error("Error extracting user ID from security context", e);
+            return null;
         }
     }
 
