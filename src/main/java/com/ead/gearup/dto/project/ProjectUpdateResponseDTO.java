@@ -6,6 +6,7 @@ import lombok.Data;
 import lombok.NoArgsConstructor;
 
 import java.time.Instant;
+import java.util.List;
 
 @Data
 @Builder
@@ -37,7 +38,22 @@ public class ProjectUpdateResponseDTO {
     
     private String updateType;
     
+    private List<TaskCompletionDTO> taskCompletions;
+    
+    private Integer overallCompletionPercentage;
+    
     private Instant createdAt;
     
     private Instant updatedAt;
+    
+    @Data
+    @Builder
+    @NoArgsConstructor
+    @AllArgsConstructor
+    public static class TaskCompletionDTO {
+        private Long taskId;
+        private String taskName;
+        private Boolean isCompleted;
+        private Integer completionPercentage;
+    }
 }

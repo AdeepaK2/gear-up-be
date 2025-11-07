@@ -7,6 +7,8 @@ import lombok.Builder;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 
+import java.util.List;
+
 @Data
 @Builder
 @NoArgsConstructor
@@ -28,4 +30,19 @@ public class ProjectUpdateDTO {
     private String estimatedCompletionDate;
     
     private String updateType; // PROGRESS, COST_CHANGE, DELAY, COMPLETION, GENERAL
+    
+    private List<TaskCompletionDTO> taskCompletions;
+    
+    private Integer overallCompletionPercentage;
+    
+    @Data
+    @Builder
+    @NoArgsConstructor
+    @AllArgsConstructor
+    public static class TaskCompletionDTO {
+        private Long taskId;
+        private String taskName;
+        private Boolean isCompleted;
+        private Integer completionPercentage;
+    }
 }

@@ -51,6 +51,12 @@ public class ProjectUpdate {
     @Column(name = "update_type", nullable = false)
     private ProjectUpdateType updateType;
     
+    @Column(name = "task_completions", columnDefinition = "TEXT")
+    private String taskCompletionsJson;
+    
+    @Column(name = "overall_completion_percentage")
+    private Integer overallCompletionPercentage;
+    
     @CreationTimestamp
     @Column(name = "created_at", nullable = false, updatable = false)
     private Instant createdAt;

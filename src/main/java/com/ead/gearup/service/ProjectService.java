@@ -19,7 +19,7 @@ import com.ead.gearup.util.TaskDTOConverter;
 import com.ead.gearup.validation.RequiresRole;
 
 import com.ead.gearup.util.ProjectDTOConverter;
-import jakarta.transaction.Transactional;
+import org.springframework.transaction.annotation.Transactional;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
@@ -47,6 +47,7 @@ public class ProjectService {
     private final ProjectDTOConverter projectDTOConverter;
     private final TaskDTOConverter taskDTOConverter;
     private final ProjectUpdateRepository projectUpdateRepository;
+    private final com.fasterxml.jackson.databind.ObjectMapper objectMapper;
 
 
     @Transactional
@@ -801,6 +802,16 @@ public class ProjectService {
         Employee employee = employeeRepository.findById(currentEmployeeId)
                 .orElseThrow(() -> new EmployeeNotFoundException("Employee not found: " + currentEmployeeId));
         
+        // Serialize task completions to JSON
+        String taskCompletionsJson = null;
+        if (updateDTO.getTaskCompletions() != null && !updateDTO.getTaskCompletions().isEmpty()) {
+            try {
+                taskCompletionsJson = objectMapper.writeValueAsString(updateDTO.getTaskCompletions());
+            } catch (Exception e) {
+                log.error("Failed to serialize task completions", e);
+            }
+        }
+        
         ProjectUpdate projectUpdate = ProjectUpdate.builder()
                 .project(project)
                 .employee(employee)
@@ -813,6 +824,8 @@ public class ProjectService {
                     LocalDate.parse(updateDTO.getEstimatedCompletionDate()) : null)
                 .updateType(com.ead.gearup.enums.ProjectUpdateType.valueOf(
                     updateDTO.getUpdateType() != null ? updateDTO.getUpdateType() : "GENERAL"))
+                .taskCompletionsJson(taskCompletionsJson)
+                .overallCompletionPercentage(updateDTO.getOverallCompletionPercentage())
                 .build();
         
         ProjectUpdate savedUpdate = projectUpdateRepository.save(projectUpdate);
@@ -821,6 +834,7 @@ public class ProjectService {
         return convertToUpdateResponseDTO(savedUpdate);
     }
     
+    @Transactional(readOnly = true)
     @RequiresRole({UserRole.CUSTOMER, UserRole.EMPLOYEE, UserRole.ADMIN})
     public List<ProjectUpdateResponseDTO> getProjectUpdates(Long projectId) {
         log.info("Fetching updates for project ID: {}", projectId);
@@ -853,13 +867,61 @@ public class ProjectService {
                 .toList();
     }
     
+    @Transactional(readOnly = true)
+    @RequiresRole({UserRole.CUSTOMER, UserRole.EMPLOYEE, UserRole.ADMIN})
+    public List<TaskResponseDTO> getProjectTasks(Long projectId) {
+        log.info("Fetching tasks for project ID: {}", projectId);
+        
+        Project project = projectRepository.findById(projectId)
+                .orElseThrow(() -> new ProjectNotFoundException("Project not found: " + projectId));
+        
+        // Verify access based on role
+        UserRole role = currentUserService.getCurrentUserRole();
+        if (role == UserRole.CUSTOMER) {
+            Long customerId = currentUserService.getCurrentEntityId();
+            if (!project.getAppointment().getCustomer().getCustomerId().equals(customerId)) {
+                throw new UnauthorizedAccessException(
+                    "You can only view tasks for your own projects");
+            }
+        } else if (role == UserRole.EMPLOYEE) {
+            Long employeeId = currentUserService.getCurrentEntityId();
+            boolean isAssigned = project.getAssignedEmployees().stream()
+                    .anyMatch(e -> e.getEmployeeId().equals(employeeId));
+            if (!isAssigned) {
+                throw new UnauthorizedAccessException(
+                    "You can only view tasks for projects you are assigned to");
+            }
+        }
+        
+        List<Task> tasks = taskRepository.findByProjectProjectId(projectId);
+        
+        return tasks.stream()
+                .map(taskDTOConverter::convertToResponseDto)
+                .toList();
+    }
+    
     private ProjectUpdateResponseDTO convertToUpdateResponseDTO(ProjectUpdate update) {
+        // Deserialize task completions from JSON
+        List<ProjectUpdateResponseDTO.TaskCompletionDTO> taskCompletions = null;
+        if (update.getTaskCompletionsJson() != null && !update.getTaskCompletionsJson().isEmpty()) {
+            try {
+                taskCompletions = objectMapper.readValue(
+                    update.getTaskCompletionsJson(),
+                    objectMapper.getTypeFactory().constructCollectionType(
+                        List.class, ProjectUpdateResponseDTO.TaskCompletionDTO.class
+                    )
+                );
+            } catch (Exception e) {
+                log.error("Failed to deserialize task completions", e);
+            }
+        }
+        
         return ProjectUpdateResponseDTO.builder()
                 .id(update.getId())
                 .projectId(update.getProject().getProjectId())
                 .projectName(update.getProject().getName())
                 .employeeId(update.getEmployee().getEmployeeId())
-                .employeeName(update.getEmployee().getFirstName() + " " + update.getEmployee().getLastName())
+                .employeeName(update.getEmployee().getUser().getName())
                 .message(update.getMessage())
                 .completedTasks(update.getCompletedTasks())
                 .totalTasks(update.getTotalTasks())
@@ -868,6 +930,8 @@ public class ProjectService {
                 .estimatedCompletionDate(update.getEstimatedCompletionDate() != null ? 
                     update.getEstimatedCompletionDate().toString() : null)
                 .updateType(update.getUpdateType().name())
+                .taskCompletions(taskCompletions)
+                .overallCompletionPercentage(update.getOverallCompletionPercentage())
                 .createdAt(update.getCreatedAt())
                 .updatedAt(update.getUpdatedAt())
                 .build();

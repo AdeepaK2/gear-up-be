@@ -10,6 +10,8 @@ CREATE TABLE IF NOT EXISTS project_updates (
     additional_cost_reason VARCHAR(500),
     estimated_completion_date DATE,
     update_type VARCHAR(50) NOT NULL,
+    task_completions TEXT,
+    overall_completion_percentage INTEGER,
     created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
     CONSTRAINT fk_project_update_project FOREIGN KEY (project_id) REFERENCES projects(project_id) ON DELETE CASCADE,
