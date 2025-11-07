@@ -6,7 +6,9 @@ import com.ead.gearup.dto.project.ProjectResponseDTO;
 import com.ead.gearup.dto.project.UpdateProjectDTO;
 import com.ead.gearup.dto.task.TaskResponseDTO;
 import com.ead.gearup.model.Project;
+import com.ead.gearup.model.ProjectUpdate;
 import com.ead.gearup.model.Task;
+import com.ead.gearup.repository.ProjectUpdateRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Component;
 
@@ -16,6 +18,8 @@ import java.util.stream.Collectors;
 @Component
 @RequiredArgsConstructor
 public class ProjectDTOConverter {
+    
+    private final ProjectUpdateRepository projectUpdateRepository;
     public Project convertToEntity(CreateProjectDTO dto){
         Project project = new Project();
         project.setName(dto.getName());
@@ -132,6 +136,18 @@ public class ProjectDTOConverter {
         } catch (Exception e) {
             System.err.println("Error accessing main representative employee for project " + project.getProjectId() + ": " + e.getMessage());
             dto.setMainRepresentativeEmployeeId(null);
+        }
+
+        // Fetch completion message if project is completed
+        try {
+            if (project.getStatus() != null && project.getStatus().name().equals("COMPLETED")) {
+                ProjectUpdate completionUpdate = projectUpdateRepository.findLatestCompletionUpdateByProjectId(project.getProjectId());
+                if (completionUpdate != null && completionUpdate.getMessage() != null) {
+                    dto.setCompletionMessage(completionUpdate.getMessage());
+                }
+            }
+        } catch (Exception e) {
+            System.err.println("Error fetching completion message for project " + project.getProjectId() + ": " + e.getMessage());
         }
 
         return dto;

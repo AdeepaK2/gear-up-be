@@ -62,13 +62,13 @@ public interface ProjectRepository extends JpaRepository<Project, Long> {
     @Query("SELECT DISTINCT p FROM Project p " +
            "LEFT JOIN FETCH p.assignedEmployees ae " +
            "LEFT JOIN FETCH ae.user " +
-           "WHERE p IN :projects")
-    List<Project> fetchAssignedEmployees(@Param("projects") List<Project> projects);
+           "WHERE p.projectId IN :projectIds")
+    List<Project> fetchAssignedEmployees(@Param("projectIds") List<Long> projectIds);
     
     @Query("SELECT DISTINCT p FROM Project p " +
            "LEFT JOIN FETCH p.tasks " +
-           "WHERE p IN :projects")
-    List<Project> fetchTasks(@Param("projects") List<Project> projects);
+           "WHERE p.projectId IN :projectIds")
+    List<Project> fetchTasks(@Param("projectIds") List<Long> projectIds);
 
     @Query("SELECT DISTINCT p FROM Project p " +
            "LEFT JOIN FETCH p.customer c " +

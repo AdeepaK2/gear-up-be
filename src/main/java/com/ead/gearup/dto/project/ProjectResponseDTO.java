@@ -24,4 +24,7 @@ public class ProjectResponseDTO {
     private List<Long> taskIds;
     private List<Long> assignedEmployeeIds;
     private Long mainRepresentativeEmployeeId;
+    
+    // Completion message from employee (for completed projects)
+    private String completionMessage;
 }
