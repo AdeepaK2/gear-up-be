@@ -6,21 +6,27 @@ import org.springframework.transaction.annotation.Transactional;
 
 import com.ead.gearup.dto.employee.CreateEmployeeDTO;
 import com.ead.gearup.dto.employee.EmployeeResponseDTO;
+import com.ead.gearup.dto.employee.EmployeeSearchResponseDTO;
 import com.ead.gearup.dto.employee.UpdateEmployeeDTO;
+import com.ead.gearup.dto.response.UserResponseDTO;
 import com.ead.gearup.enums.UserRole;
 import com.ead.gearup.exception.EmployeeNotFoundException;
 import com.ead.gearup.exception.UnauthorizedCustomerAccessException;
 import com.ead.gearup.exception.UserNotFoundException;
 import com.ead.gearup.model.Employee;
 import com.ead.gearup.model.User;
+import com.ead.gearup.repository.AppointmentRepository;
 import com.ead.gearup.repository.EmployeeRepository;
 import com.ead.gearup.repository.UserRepository;
 import com.ead.gearup.service.auth.CurrentUserService;
 import com.ead.gearup.util.EmployeeDTOConverter;
+import com.ead.gearup.validation.RequiresRole;
 
 import lombok.RequiredArgsConstructor;
 
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.stream.Collectors;
 
 @Service
@@ -29,6 +35,9 @@ import java.util.stream.Collectors;
 public class EmployeeService {
     @Autowired
     private EmployeeRepository employeeRepository;
+
+    @Autowired
+    private AppointmentRepository appointmentRepository;
 
     @Autowired
     private EmployeeDTOConverter converter;
@@ -81,6 +90,7 @@ public class EmployeeService {
         return converter.convertToResponseDto(employee);
     }
 
+    @Transactional
     public EmployeeResponseDTO updateEmployee(Long id, UpdateEmployeeDTO updateEmployeeDTO) {
         if (id == null || id <= 0) {
             throw new IllegalArgumentException("Invalid employee ID");
@@ -95,6 +105,35 @@ public class EmployeeService {
         return converter.convertToResponseDto(savedEmployee);
     }
 
+    public Map<String, Object> checkEmployeeDependencies(Long employeeId) {
+        if (employeeId == null || employeeId <= 0) {
+            throw new IllegalArgumentException("Invalid employee ID");
+        }
+
+        // Verify employee exists
+        employeeRepository.findById(employeeId)
+                .orElseThrow(() -> new EmployeeNotFoundException("Employee not found with id: " + employeeId));
+
+        Map<String, Object> dependencies = new HashMap<>();
+
+        // Check appointments assigned to this employee
+        long appointmentCount = appointmentRepository.findAll().stream()
+                .filter(apt -> apt.getEmployee() != null && apt.getEmployee().getEmployeeId().equals(employeeId))
+                .count();
+
+        dependencies.put("appointmentCount", appointmentCount);
+        dependencies.put("hasAppointments", appointmentCount > 0);
+        dependencies.put("canDelete", appointmentCount == 0);
+
+        if (appointmentCount > 0) {
+            dependencies.put("warningMessage",
+                "This employee is assigned to " + appointmentCount + " appointment(s). " +
+                "Please reassign or complete these appointments before deleting the employee.");
+        }
+
+        return dependencies;
+    }
+
     @Transactional
     public void deleteEmployee(Long employeeId) {
         if (employeeId == null || employeeId <= 0) {
@@ -103,6 +142,15 @@ public class EmployeeService {
 
         Employee employee = employeeRepository.findById(employeeId)
                 .orElseThrow(() -> new EmployeeNotFoundException("Employee not found with id: " + employeeId));
+
+        // Check dependencies before deletion
+        Map<String, Object> dependencies = checkEmployeeDependencies(employeeId);
+        boolean canDelete = (boolean) dependencies.get("canDelete");
+
+        if (!canDelete) {
+            throw new IllegalStateException(
+                "Cannot delete employee. " + dependencies.get("warningMessage"));
+        }
 
         // Handle linked User
         User linkedUser = employee.getUser();
@@ -114,5 +162,24 @@ public class EmployeeService {
 
         // Delete the employee safely
         employeeRepository.delete(employee);
+    }
+
+    @RequiresRole({UserRole.EMPLOYEE})
+    public EmployeeResponseDTO getCurrentEmployee(){
+        Long employeeId = currentUserService.getCurrentEntityId();
+        return getEmployeeById(employeeId);
+    }
+
+    public List<EmployeeSearchResponseDTO> searchEmployeesByEmployeeName(String name) {
+        return employeeRepository.findEmployeeSearchResultsNative(name)
+                .stream()
+                .map(p -> new EmployeeSearchResponseDTO(
+                        p.getEmployeeId(),
+                        new UserResponseDTO(
+                                p.getName(),
+                                p.getEmail()),
+                        p.getSpecialization(),
+                        p.getHireDate()))
+                .collect(Collectors.toList());
     }
 }

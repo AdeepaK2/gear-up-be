@@ -1,8 +1,6 @@
 package com.ead.gearup.controller;
 
-import com.ead.gearup.dto.customer.CustomerRequestDTO;
-import com.ead.gearup.dto.customer.CustomerResponseDTO;
-import com.ead.gearup.dto.customer.CustomerUpdateDTO;
+import com.ead.gearup.dto.customer.*;
 import com.ead.gearup.dto.response.ApiResponseDTO;
 import com.ead.gearup.enums.UserRole;
 import com.ead.gearup.service.CustomerService;
@@ -32,7 +30,7 @@ public class CustomerController {
 
     @GetMapping
     @Operation(summary = "Get all customers")
-//     @RequiresRole({ UserRole.CUSTOMER, UserRole.ADMIN, UserRole.EMPLOYEE })
+    @RequiresRole({ UserRole.CUSTOMER, UserRole.ADMIN, UserRole.EMPLOYEE })
     public ResponseEntity<ApiResponseDTO<List<CustomerResponseDTO>>> getAll(HttpServletRequest request) {
         List<CustomerResponseDTO> customers = customerService.getAll();
 
@@ -46,10 +44,27 @@ public class CustomerController {
 
         return ResponseEntity.ok(response);
     }
+        
+    @GetMapping("/me")
+    @Operation(summary = "Get customer")
+    @RequiresRole({ UserRole.CUSTOMER, UserRole.ADMIN, UserRole.EMPLOYEE })
+    public ResponseEntity<ApiResponseDTO<CustomerResponseDTO>> getCustomer(HttpServletRequest request) {
+        CustomerResponseDTO customer = customerService.getCustomer();
+
+        ApiResponseDTO<CustomerResponseDTO> response = ApiResponseDTO.<CustomerResponseDTO>builder()
+                .status("success")
+                .message("Customer retrieved successfully")
+                .data(customer)
+                .timestamp(Instant.now())
+                .path(request.getRequestURI())
+                .build();
+
+        return ResponseEntity.ok(response);
+    }
 
     @GetMapping("/{id}")
     @Operation(summary = "Get customer by ID")
-//     @RequiresRole({ UserRole.CUSTOMER, UserRole.ADMIN, UserRole.EMPLOYEE })
+    @RequiresRole({ UserRole.CUSTOMER, UserRole.ADMIN, UserRole.EMPLOYEE })
     public ResponseEntity<ApiResponseDTO<CustomerResponseDTO>> getById(@PathVariable Long id,
             HttpServletRequest request) {
         CustomerResponseDTO customer = customerService.getById(id);
@@ -121,4 +136,111 @@ public class CustomerController {
 
         return ResponseEntity.ok(response);
     }
+
+    // Header/GetProfile
+    @GetMapping("/{id}/header")
+    @RequiresRole(UserRole.CUSTOMER)
+    @Operation(summary = "Get customer header info (name & profile image)")
+    public ResponseEntity<ApiResponseDTO<CustomerHeaderDTO>> getHeaderInfo(
+            @PathVariable Long id,
+            HttpServletRequest request) {
+
+        CustomerHeaderDTO header = customerService.getHeaderInfo(id);
+
+        ApiResponseDTO<CustomerHeaderDTO> response = ApiResponseDTO.<CustomerHeaderDTO>builder()
+                .status("success")
+                .message("Customer header info retrieved successfully")
+                .data(header)
+                .timestamp(Instant.now())
+                .path(request.getRequestURI())
+                .build();
+
+        return ResponseEntity.ok(response);
+    }
+
+    // Header/Get Notification
+    // @GetMapping("/{id}/notifications")
+    // @Operation(summary = "Get notifications for a customer")
+    // public ResponseEntity<ApiResponseDTO<List<NotificationDTO>>>
+    // getNotifications(
+    // @PathVariable Long id,
+    // HttpServletRequest request) {
+    //
+    // List<NotificationDTO> notifications = customerService.getNotifications(id);
+    //
+    // ApiResponseDTO<List<NotificationDTO>> response =
+    // ApiResponseDTO.<List<NotificationDTO>>builder()
+    // .status("success")
+    // .message("Customer notifications retrieved successfully")
+    // .data(notifications)
+    // .timestamp(Instant.now())
+    // .path(request.getRequestURI())
+    // .build();
+    //
+    // return ResponseEntity.ok(response);
+    // }
+
+    // Customer Dashboard
+    @GetMapping("/{id}/dashboard")
+    @RequiresRole(UserRole.CUSTOMER)
+    @Operation(summary = "Get full customer dashboard details")
+    public ResponseEntity<ApiResponseDTO<CustomerDashboardDTO>> getDashboard(
+            @PathVariable Long id,
+            HttpServletRequest request) {
+
+        CustomerDashboardDTO dashboard = customerService.getDashboard(id);
+
+        ApiResponseDTO<CustomerDashboardDTO> response = ApiResponseDTO.<CustomerDashboardDTO>builder()
+                .status("success")
+                .message("Customer dashboard retrieved successfully")
+                .data(dashboard)
+                .timestamp(Instant.now())
+                .path(request.getRequestURI())
+                .build();
+
+        return ResponseEntity.ok(response);
+    }
+
+    @PutMapping("/{id}/deactivate")
+    @RequiresRole(UserRole.ADMIN)
+    @Operation(summary = "Deactivate customer account", description = "Deactivates a customer account (soft delete)")
+    public ResponseEntity<ApiResponseDTO<Void>> deactivateCustomer(
+            @PathVariable Long id,
+            @RequestBody(required = false) java.util.Map<String, String> requestBody,
+            HttpServletRequest request) {
+
+        String reason = requestBody != null ? requestBody.get("reason") : null;
+        customerService.deactivateCustomer(id, reason);
+
+        ApiResponseDTO<Void> response = ApiResponseDTO.<Void>builder()
+                .status("success")
+                .message("Customer account deactivated successfully")
+                .data(null)
+                .timestamp(Instant.now())
+                .path(request.getRequestURI())
+                .build();
+
+        return ResponseEntity.ok(response);
+    }
+
+    @PutMapping("/{id}/reactivate")
+    @RequiresRole(UserRole.ADMIN)
+    @Operation(summary = "Reactivate customer account", description = "Reactivates a deactivated customer account")
+    public ResponseEntity<ApiResponseDTO<Void>> reactivateCustomer(
+            @PathVariable Long id,
+            HttpServletRequest request) {
+
+        customerService.reactivateCustomer(id);
+
+        ApiResponseDTO<Void> response = ApiResponseDTO.<Void>builder()
+                .status("success")
+                .message("Customer account reactivated successfully")
+                .data(null)
+                .timestamp(Instant.now())
+                .path(request.getRequestURI())
+                .build();
+
+        return ResponseEntity.ok(response);
+    }
+
 }

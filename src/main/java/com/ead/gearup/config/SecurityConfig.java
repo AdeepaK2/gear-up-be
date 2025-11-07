@@ -8,6 +8,7 @@ import jakarta.servlet.http.HttpServletResponse;
 
 import lombok.RequiredArgsConstructor;
 
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 
@@ -25,6 +26,7 @@ import org.springframework.web.cors.CorsConfiguration;
 import org.springframework.web.cors.CorsConfigurationSource;
 import org.springframework.web.cors.UrlBasedCorsConfigurationSource;
 
+import java.util.Arrays;
 import java.util.List;
 
 @Configuration
@@ -34,6 +36,9 @@ public class SecurityConfig {
 
     private final JwtAuthenticationFilter jwtAuthenticationFilter;
     private final ObjectMapper objectMapper;
+
+    @Value("${cors.allowed.origins:http://localhost:3000,http://localhost:3001}")
+    private String allowedOrigins;
 
     /**
      * Main Security Filter Chain
@@ -52,11 +57,17 @@ public class SecurityConfig {
                         .requestMatchers(
                                 "/swagger-ui/**",
                                 "/v3/api-docs/**",
+                                "/graphql/**",
+                                "/graphiql/**",
+                                "/vendor/**",
                                 "/swagger-ui.html",
+                                "/swagger",
                                 "/api/v1/auth/**",
-                                "/api/v1/public/**")
+                                "/api/v1/public/**",
+                                "/actuator/**")
                         .permitAll()
                         .requestMatchers("/api/v1/admin/**").hasRole("ADMIN")
+                        .requestMatchers("/api/v1/chat/**").authenticated() // Chat requires authentication
                         // .requestMatchers("/api/v1/customers/**").hasRole("CUSTOMER")
                         // .requestMatchers("/api/v1/employees/**").hasRole("EMPLOYEE")
                         .anyRequest().authenticated())
@@ -78,21 +89,21 @@ public class SecurityConfig {
 
                     res.getWriter().write(objectMapper.writeValueAsString(apiResponse));
                 })
-                
-                // 403 - Authenticated but insufficient role
-                .accessDeniedHandler((req, res, accessDeniedEx) -> {
-                    res.setContentType("application/json");
-                    res.setStatus(HttpServletResponse.SC_FORBIDDEN);
 
-                    ApiResponseDTO<Object> apiResponse = ApiResponseDTO.builder()
-                            .status("error")
-                            .message("Forbidden: Access denied")
-                            .path(req.getRequestURI())
-                            .data(null)
-                            .build();
+                        // 403 - Authenticated but insufficient role
+                        .accessDeniedHandler((req, res, accessDeniedEx) -> {
+                            res.setContentType("application/json");
+                            res.setStatus(HttpServletResponse.SC_FORBIDDEN);
 
-                    res.getWriter().write(objectMapper.writeValueAsString(apiResponse));
-                }))
+                            ApiResponseDTO<Object> apiResponse = ApiResponseDTO.builder()
+                                    .status("error")
+                                    .message("Forbidden: Access denied")
+                                    .path(req.getRequestURI())
+                                    .data(null)
+                                    .build();
+
+                            res.getWriter().write(objectMapper.writeValueAsString(apiResponse));
+                        }))
 
                 // Add JWT filter before UsernamePasswordAuthenticationFilter
                 .addFilterBefore(jwtAuthenticationFilter, UsernamePasswordAuthenticationFilter.class)
@@ -118,17 +129,36 @@ public class SecurityConfig {
 
     /**
      * CORS configuration
+     *
+     * SECURITY: Configure allowed origins via environment variable
+     *
+     * Development: cors.allowed.origins=http://localhost:3000,http://localhost:3001
+     * Production: cors.allowed.origins=https://gearup.code102.site,https://your-domain.com
      */
     @Bean
     public CorsConfigurationSource corsConfigurationSource() {
         CorsConfiguration config = new CorsConfiguration();
-        config.setAllowedOrigins(List.of(
-                "http://localhost:3000", // dev frontend
-                "https://your-production.com" // production frontend
-        ));
+
+        // Parse allowed origins from environment variable
+        List<String> origins = Arrays.asList(allowedOrigins.split(","));
+
+        // For development with wildcard ports, convert to patterns
+        List<String> patterns = origins.stream()
+                .map(origin -> {
+                    // Convert localhost URLs to patterns supporting any port
+                    if (origin.contains("localhost") && !origin.contains("*")) {
+                        return origin.replaceAll(":\\d+", ":*");
+                    }
+                    return origin;
+                })
+                .toList();
+
+        config.setAllowedOriginPatterns(patterns);
+
         config.setAllowedHeaders(List.of("*")); // Allow all headers
         config.setAllowedMethods(List.of("GET", "POST", "PUT", "DELETE", "PATCH", "OPTIONS"));
         config.setAllowCredentials(true);
+        config.setMaxAge(3600L); // Cache preflight response for 1 hour
 
         UrlBasedCorsConfigurationSource source = new UrlBasedCorsConfigurationSource();
         source.registerCorsConfiguration("/**", config);

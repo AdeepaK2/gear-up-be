@@ -39,11 +39,31 @@ public class Task {
     @Column(nullable = false)
     private String description;
 
-    @Column(nullable = false)
+    @Column(name = "estimated_hours", nullable = false)
     private Integer estimatedHours;
 
-    @Column(nullable = false)
+    @Column(name = "estimated_cost", nullable = false)
+    private Double estimatedCost;
+
+    @Column(name = "cost", nullable = false)
     private Double cost;
+
+    @Column(nullable = false)
+    private String category;
+
+    @Column(nullable = false)
+    private String priority;
+
+    @Column
+    private String notes;
+
+    @Column
+    private String requestedBy;
+
+    @ManyToOne
+    @JoinColumn(name = "project_id") // foreign key column
+    private Project project;
+
 
     @Enumerated(EnumType.STRING)
     @Builder.Default
@@ -63,4 +83,9 @@ public class Task {
     protected void onCreate() {
         this.createdAt = LocalDateTime.now();
     }
+
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "employee_id")
+    private Employee employee;
+
 }

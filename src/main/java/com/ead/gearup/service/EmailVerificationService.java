@@ -7,17 +7,21 @@ import org.springframework.stereotype.Service;
 
 import com.ead.gearup.model.User;
 import com.ead.gearup.model.UserPrinciple;
+import com.ead.gearup.repository.UserRepository;
 import com.ead.gearup.service.auth.JwtService;
 
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 
 @Service
 @Transactional
 @RequiredArgsConstructor
+@Slf4j
 public class EmailVerificationService {
 
     private final EmailService emailService;
     private final JwtService jwtService;
+    private final UserRepository userRepository;
 
     @Value("${app.base-url}")
     private String appBaseUrl;
@@ -25,15 +29,26 @@ public class EmailVerificationService {
     @Value("${app.frontend-url}")
     private String frontendUrl;
 
+    @Value("${app.email.verification.enabled:false}")
+    private boolean emailVerificationEnabled;
+
     public void sendVerificationEmail(User user) {
+        // If email verification is disabled, automatically verify the user
+        if (!emailVerificationEnabled) {
+            log.info("📧 Email verification DISABLED - Auto-verifying user: {}", user.getEmail());
+            user.setIsVerified(true);
+            userRepository.save(user);
+            log.info("✅ User '{}' has been automatically verified", user.getEmail());
+            return;
+        }
+
         try {
             // Create UserDetails manually, no verification check
             UserDetails userDetails = new UserPrinciple(user);
 
             String token = jwtService.generateEmailVerificationToken(userDetails);
 
-            // Use frontend URL for verification link
-            String verificationUrl = frontendUrl + "/verify-email?token=" + token;
+            String verificationUrl = appBaseUrl + "/api/v1/auth/verify-email?token=" + token;
 
             // Send email
             emailService.sendVerificationEmail(user.getEmail(), user.getName(), verificationUrl);

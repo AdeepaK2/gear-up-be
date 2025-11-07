@@ -1,0 +1,7 @@
+type Customer {
+  customerId: ID!
+  user: User
+  phoneNumber: String
+  vehicles: [Vehicle]
+  appointments: [Appointment]
+}

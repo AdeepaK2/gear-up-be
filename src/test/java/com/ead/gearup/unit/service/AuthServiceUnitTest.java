@@ -1,5 +1,9 @@
-package com.ead.gearup.service;
+package com.ead.gearup.unit.service;
 
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyMap;
+import static org.mockito.ArgumentMatchers.anyString;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.*;
 import static org.junit.jupiter.api.Assertions.*;
 
@@ -32,6 +36,8 @@ import com.ead.gearup.exception.ResendEmailCooldownException;
 import com.ead.gearup.model.User;
 import com.ead.gearup.model.UserPrinciple;
 import com.ead.gearup.repository.UserRepository;
+import com.ead.gearup.service.AuthService;
+import com.ead.gearup.service.EmailVerificationService;
 import com.ead.gearup.service.auth.CustomUserDetailsService;
 import com.ead.gearup.service.auth.JwtService;
 
@@ -183,8 +189,8 @@ class AuthServiceUnitTest {
         when(auth.getPrincipal()).thenReturn(principle);
 
         when(authManager.authenticate(any(UsernamePasswordAuthenticationToken.class))).thenReturn(auth);
-        when(jwtService.generateAccessToken(principle)).thenReturn("accessToken");
-        when(jwtService.generateRefreshToken(principle)).thenReturn("refreshToken");
+        when(jwtService.generateAccessToken(eq(principle), anyMap())).thenReturn("accessToken");
+        when(jwtService.generateRefreshToken(eq(principle))).thenReturn("refreshToken");
         when(userRepository.save(user)).thenReturn(user);
 
         JwtTokensDTO tokens = authService.verifyUser(dto);

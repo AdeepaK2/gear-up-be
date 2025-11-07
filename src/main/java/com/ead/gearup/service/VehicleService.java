@@ -98,4 +98,13 @@ public class VehicleService {
 
         return converter.convertToResponseDto(savedVehicle);
     }
+
+    public List<VehicleResponseDTO> getVehiclesForCurrentCustomer() {
+        Long customerId = currentUserService.getCurrentEntityId();
+
+        List<Vehicle> vehicles = vehicleRepository.findByCustomer_CustomerId(customerId);
+        return vehicles.stream()
+                .map(converter::convertToResponseDto)
+                .collect(Collectors.toList());
+    }
 }

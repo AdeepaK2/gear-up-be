@@ -54,6 +54,9 @@ public class JwtService {
 
         extraClaims.put("role", roleWithoutPrefix);
         extraClaims.put("token_type", "access");
+        
+        // Add requiresPasswordChange flag if present in extraClaims
+        // This will be set by the authentication service
 
         return Jwts.builder()
                 .claims(extraClaims)
@@ -102,6 +105,21 @@ public class JwtService {
                 .subject(userDetails.getUsername())
                 .issuedAt(new Date(System.currentTimeMillis()))
                 .expiration(new Date(System.currentTimeMillis() + emailVerificationTokenDurationMs))
+                .signWith(getSignKey())
+                .header().add("typ", "JWT")
+                .and()
+                .compact();
+    }
+
+    public String generatePasswordResetToken(UserDetails userDetails) {
+        Map<String, Object> claims = new HashMap<>();
+        claims.put("token_type", "password_reset");
+
+        return Jwts.builder()
+                .claims(claims)
+                .subject(userDetails.getUsername())
+                .issuedAt(new Date(System.currentTimeMillis()))
+                .expiration(new Date(System.currentTimeMillis() + emailVerificationTokenDurationMs)) // 5 minutes
                 .signWith(getSignKey())
                 .header().add("typ", "JWT")
                 .and()
