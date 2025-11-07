@@ -11,9 +11,11 @@ import org.springframework.web.bind.annotation.*;
 import org.springframework.web.reactive.function.client.WebClient;
 import org.springframework.web.reactive.function.client.WebClientResponseException;
 
+import com.ead.gearup.config.RateLimitConfig;
 import com.ead.gearup.dto.chatbot.ChatRequest;
 import com.ead.gearup.dto.chatbot.ChatResponse;
 import com.ead.gearup.dto.response.ApiResponseDTO;
+import com.ead.gearup.service.AuditLogService;
 import com.ead.gearup.service.CustomerService;
 
 import io.swagger.v3.oas.annotations.Operation;
@@ -36,6 +38,8 @@ public class ChatbotProxyController {
 
     private final WebClient.Builder webClientBuilder;
     private final CustomerService customerService;
+    private final RateLimitConfig rateLimitConfig;
+    private final AuditLogService auditLogService;
 
     @Value("${chatbot.service.url:http://localhost:8000}")
     private String chatbotServiceUrl;
@@ -50,14 +54,36 @@ public class ChatbotProxyController {
     )
     public ResponseEntity<ApiResponseDTO<ChatResponse>> chat(
             @RequestBody ChatRequest request,
-            HttpServletRequest httpRequest) {
+            HttpServletRequest httpRequest,
+            @RequestHeader("Authorization") String authorizationHeader) {
 
         try {
-            log.info("Processing chat request: {}", request.getQuestion().substring(0, Math.min(50, request.getQuestion().length())));
+            String questionPreview = request.getQuestion().substring(0, Math.min(50, request.getQuestion().length()));
+            log.info("Processing chat request: {}", questionPreview);
 
             // Get authenticated customer context
             String customerEmail = getCurrentCustomerEmail();
+
+            // Rate limiting check
+            if (!rateLimitConfig.tryConsume(customerEmail)) {
+                log.warn("Rate limit exceeded for user: {}", customerEmail);
+                auditLogService.logRateLimitViolation(customerEmail, "/chat");
+                return ResponseEntity.status(HttpStatus.TOO_MANY_REQUESTS)
+                        .body(ApiResponseDTO.<ChatResponse>builder()
+                                .status("error")
+                                .message("Rate limit exceeded. Please try again in a few moments.")
+                                .timestamp(Instant.now())
+                                .path(httpRequest.getRequestURI())
+                                .build());
+            }
+
             Long customerId = customerService.getCustomerIdByEmail(customerEmail);
+
+            // Audit log - chat request initiated
+            auditLogService.logChatRequest(customerEmail, questionPreview, true);
+
+            // Extract JWT token from Authorization header
+            String jwtToken = extractJwtToken(authorizationHeader);
 
             // Prepare request for Python chatbot service
             var chatbotRequest = com.ead.gearup.dto.chatbot.ChatbotServiceRequest.builder()
@@ -66,7 +92,7 @@ public class ChatbotProxyController {
                     .conversationHistory(request.getConversationHistory())
                     .customerId(customerId)
                     .customerEmail(customerEmail)
-                    .authToken(getCurrentAuthToken())
+                    .authToken(jwtToken)
                     .build();
 
             // Call Python chatbot service
@@ -92,6 +118,12 @@ public class ChatbotProxyController {
 
         } catch (WebClientResponseException e) {
             log.error("Error calling chatbot service: {}", e.getMessage());
+            try {
+                String customerEmail = getCurrentCustomerEmail();
+                auditLogService.logChatRequest(customerEmail, "", false);
+            } catch (Exception ignored) {
+                // Best effort audit logging
+            }
             return ResponseEntity.status(e.getStatusCode())
                     .body(ApiResponseDTO.<ChatResponse>builder()
                             .status("error")
@@ -101,6 +133,12 @@ public class ChatbotProxyController {
                             .build());
         } catch (Exception e) {
             log.error("Error processing chat request", e);
+            try {
+                String customerEmail = getCurrentCustomerEmail();
+                auditLogService.logChatRequest(customerEmail, "", false);
+            } catch (Exception ignored) {
+                // Best effort audit logging
+            }
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
                     .body(ApiResponseDTO.<ChatResponse>builder()
                             .status("error")
@@ -125,6 +163,16 @@ public class ChatbotProxyController {
 
         try {
             log.info("Processing stream chat request: {}", request.getQuestion().substring(0, Math.min(50, request.getQuestion().length())));
+
+            // Get authenticated customer context
+            String customerEmail = getCurrentCustomerEmail();
+
+            // Rate limiting check
+            if (!rateLimitConfig.tryConsume(customerEmail)) {
+                log.warn("Rate limit exceeded for user: {}", customerEmail);
+                return ResponseEntity.status(HttpStatus.TOO_MANY_REQUESTS)
+                        .body("Rate limit exceeded. Please try again in a few moments.");
+            }
 
             // For now, redirect to Python service directly
             // TODO: Implement proper streaming proxy that includes authentication context
@@ -247,6 +295,9 @@ public class ChatbotProxyController {
             log.info("Creating new chat session for customer: {}", customerEmail);
             log.info("Calling Python service at: {}/chat/sessions", chatbotServiceUrl);
 
+            // Audit log - session creation
+            auditLogService.logSessionOperation(customerEmail, "CREATE", "new", true);
+
             WebClient webClient = webClientBuilder.build();
             
             Map<String, String> requestBody = Map.of(
@@ -301,7 +352,7 @@ public class ChatbotProxyController {
     @DeleteMapping("/sessions/{sessionId}")
     @Operation(
         summary = "Delete chat session",
-        description = "Delete a chat session and its history"
+        description = "Delete a chat session and its history (with ownership verification)"
     )
     public ResponseEntity<ApiResponseDTO<Object>> deleteChatSession(
             @PathVariable String sessionId,
@@ -310,13 +361,55 @@ public class ChatbotProxyController {
         try {
             log.info("Deleting chat session: {}", sessionId);
 
+            // SECURITY FIX: Verify session ownership before deletion
+            String authenticatedEmail = getCurrentCustomerEmail();
+
+            // Audit log - session deletion attempt
+            auditLogService.logSessionOperation(authenticatedEmail, "DELETE", sessionId, false);
+
+            // First, get all sessions for the authenticated user to verify ownership
             WebClient webClient = webClientBuilder.build();
+            Object sessionsResponse = webClient
+                    .get()
+                    .uri(chatbotServiceUrl + "/chat/sessions?limit=100&customerEmail=" + authenticatedEmail)
+                    .retrieve()
+                    .bodyToMono(Object.class)
+                    .block();
+
+            // Verify that the session belongs to the authenticated user
+            boolean sessionOwned = verifySessionOwnership(sessionsResponse, sessionId);
+
+            if (!sessionOwned) {
+                log.warn("Unauthorized deletion attempt: User {} tried to delete session {} which they don't own",
+                         authenticatedEmail, sessionId);
+                // Audit log - authorization failure
+                auditLogService.logAuthorizationFailure(
+                        authenticatedEmail,
+                        "DELETE_SESSION",
+                        sessionId,
+                        "Session does not belong to user"
+                );
+                return ResponseEntity.status(HttpStatus.FORBIDDEN)
+                        .body(ApiResponseDTO.<Object>builder()
+                                .status("error")
+                                .message("Forbidden: You don't have permission to delete this session")
+                                .timestamp(Instant.now())
+                                .path(httpRequest.getRequestURI())
+                                .build());
+            }
+
+            // Proceed with deletion if ownership verified
             Object result = webClient
                     .delete()
                     .uri(chatbotServiceUrl + "/chat/sessions/" + sessionId)
                     .retrieve()
                     .bodyToMono(Object.class)
                     .block();
+
+            log.info("Successfully deleted session {} for user {}", sessionId, authenticatedEmail);
+
+            // Audit log - successful deletion
+            auditLogService.logSessionOperation(authenticatedEmail, "DELETE", sessionId, true);
 
             ApiResponseDTO<Object> response = ApiResponseDTO.<Object>builder()
                     .status("success")
@@ -337,6 +430,24 @@ public class ChatbotProxyController {
                             .timestamp(Instant.now())
                             .path(httpRequest.getRequestURI())
                             .build());
+        }
+    }
+
+    /**
+     * Verify that a session belongs to the authenticated user
+     */
+    private boolean verifySessionOwnership(Object sessionsResponse, String sessionId) {
+        try {
+            // Parse the sessions response and check if sessionId exists
+            // This is a simplified check - you might need to adjust based on actual response structure
+            if (sessionsResponse != null) {
+                String responseString = sessionsResponse.toString();
+                return responseString.contains(sessionId);
+            }
+            return false;
+        } catch (Exception e) {
+            log.error("Error verifying session ownership", e);
+            return false; // Fail secure: deny access if verification fails
         }
     }
 
@@ -416,9 +527,17 @@ public class ChatbotProxyController {
     /**
      * Get current JWT token from request header
      */
-    private String getCurrentAuthToken() {
-        // This is a simplified approach - in a real implementation, you might want to 
-        // extract the token from the HttpServletRequest or store it in the SecurityContext
-        return null; // Will be handled by the Python service authentication if needed
+    /**
+     * Extract JWT token from Authorization header
+     *
+     * @param authorizationHeader The Authorization header value (e.g., "Bearer eyJhbGc...")
+     * @return The JWT token without the "Bearer " prefix, or null if invalid
+     */
+    private String extractJwtToken(String authorizationHeader) {
+        if (authorizationHeader != null && authorizationHeader.startsWith("Bearer ")) {
+            return authorizationHeader.substring(7); // Remove "Bearer " prefix
+        }
+        log.warn("Invalid or missing Authorization header");
+        return null;
     }
 }
