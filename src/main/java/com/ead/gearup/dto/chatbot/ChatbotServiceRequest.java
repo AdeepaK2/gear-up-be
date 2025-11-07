@@ -18,6 +18,7 @@ public class ChatbotServiceRequest {
     private String appointmentDate;
     private String serviceType;
     private Long customerId;
+    private Long userId;  // User ID for session filtering
     private String customerEmail;
     private String authToken;
 }

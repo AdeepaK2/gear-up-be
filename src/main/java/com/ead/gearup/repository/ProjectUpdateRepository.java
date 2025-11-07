@@ -16,4 +16,7 @@ public interface ProjectUpdateRepository extends JpaRepository<ProjectUpdate, Lo
     
     @Query("SELECT pu FROM ProjectUpdate pu WHERE pu.employee.id = :employeeId ORDER BY pu.createdAt DESC")
     List<ProjectUpdate> findByEmployeeIdOrderByCreatedAtDesc(@Param("employeeId") Long employeeId);
+    
+    @Query("SELECT pu FROM ProjectUpdate pu WHERE pu.project.id = :projectId AND pu.updateType = 'COMPLETION' ORDER BY pu.createdAt DESC LIMIT 1")
+    ProjectUpdate findLatestCompletionUpdateByProjectId(@Param("projectId") Long projectId);
 }

@@ -14,6 +14,21 @@ import org.springframework.stereotype.Repository;
 @Repository
 public interface ProjectRepository extends JpaRepository<Project, Long> {
 
+    long countByStatus(ProjectStatus status);
+
+    @Query("SELECT p.status, COUNT(p) FROM Project p GROUP BY p.status")
+    List<Object[]> countProjectsByStatus();
+
+
+    @Query(value = """
+            SELECT DATE_TRUNC('month', p.updated_at) AS month_start, COUNT(*)
+            FROM projects p
+            WHERE p.status = :status AND p.updated_at >= :startDate
+            GROUP BY month_start
+            ORDER BY month_start
+            """, nativeQuery = true)
+    List<Object[]> countProjectsByMonthAndStatus(@Param("status") String status, @Param("startDate") java.time.LocalDateTime startDate);
+
     @Query("SELECT p.status, COUNT(p) " +
            "FROM Project p " +
            "JOIN p.assignedEmployees e " +
@@ -62,13 +77,13 @@ public interface ProjectRepository extends JpaRepository<Project, Long> {
     @Query("SELECT DISTINCT p FROM Project p " +
            "LEFT JOIN FETCH p.assignedEmployees ae " +
            "LEFT JOIN FETCH ae.user " +
-           "WHERE p IN :projects")
-    List<Project> fetchAssignedEmployees(@Param("projects") List<Project> projects);
+           "WHERE p.projectId IN :projectIds")
+    List<Project> fetchAssignedEmployees(@Param("projectIds") List<Long> projectIds);
     
     @Query("SELECT DISTINCT p FROM Project p " +
            "LEFT JOIN FETCH p.tasks " +
-           "WHERE p IN :projects")
-    List<Project> fetchTasks(@Param("projects") List<Project> projects);
+           "WHERE p.projectId IN :projectIds")
+    List<Project> fetchTasks(@Param("projectIds") List<Long> projectIds);
 
     @Query("SELECT DISTINCT p FROM Project p " +
            "LEFT JOIN FETCH p.customer c " +
