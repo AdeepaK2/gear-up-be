@@ -30,6 +30,10 @@ public class WebClientConfig {
 
     @Bean
     public WebClient chatbotWebClient() {
+        if (pythonServiceUrl == null || pythonServiceUrl.trim().isEmpty()) {
+            throw new IllegalStateException("CHATBOT_PYTHON_SERVICE_URL environment variable must be set for chatbot integration");
+        }
+        
         log.info("Configuring WebClient for Python chatbot service at: {}", pythonServiceUrl);
 
         // Configure HTTP client with timeouts
