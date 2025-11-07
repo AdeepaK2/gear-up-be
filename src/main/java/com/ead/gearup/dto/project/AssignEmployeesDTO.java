@@ -14,4 +14,6 @@ public class AssignEmployeesDTO {
 
     @NotEmpty(message = "At least one employee must be assigned")
     private List<Long> employeeIds;
+    
+    private Long mainRepresentativeEmployeeId;
 }

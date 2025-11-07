@@ -248,12 +248,52 @@ public class ProjectController {
                         @PathVariable Long projectId,
                         @Valid @RequestBody AssignEmployeesDTO dto,
                         HttpServletRequest request) {
-                ProjectResponseDTO updatedProject = projectService.assignEmployees(projectId, dto.getEmployeeIds());
+                ProjectResponseDTO updatedProject = projectService.assignEmployees(
+                        projectId, 
+                        dto.getEmployeeIds(), 
+                        dto.getMainRepresentativeEmployeeId()
+                );
 
                 ApiResponseDTO<ProjectResponseDTO> response = ApiResponseDTO.<ProjectResponseDTO>builder()
                                 .status("success")
                                 .message("Employees assigned successfully")
                                 .data(updatedProject)
+                                .timestamp(Instant.now())
+                                .path(request.getRequestURI())
+                                .build();
+
+                return ResponseEntity.ok(response);
+        }
+
+        @PostMapping("/{projectId}/report")
+        @Operation(summary = "Submit project report (Employee only)")
+        public ResponseEntity<ApiResponseDTO<ProjectResponseDTO>> submitProjectReport(
+                        @PathVariable Long projectId,
+                        @Valid @RequestBody ProjectReportDTO reportDTO,
+                        HttpServletRequest request) {
+                ProjectResponseDTO updatedProject = projectService.submitProjectReport(projectId, reportDTO);
+
+                ApiResponseDTO<ProjectResponseDTO> response = ApiResponseDTO.<ProjectResponseDTO>builder()
+                                .status("success")
+                                .message("Project report submitted successfully and sent to customer")
+                                .data(updatedProject)
+                                .timestamp(Instant.now())
+                                .path(request.getRequestURI())
+                                .build();
+
+                return ResponseEntity.ok(response);
+        }
+
+        @GetMapping("/reports")
+        @Operation(summary = "Get projects with reports for current customer")
+        public ResponseEntity<ApiResponseDTO<List<ProjectResponseDTO>>> getProjectsWithReports(
+                        HttpServletRequest request) {
+                List<ProjectResponseDTO> projects = projectService.getProjectsWithReportsForCurrentCustomer();
+
+                ApiResponseDTO<List<ProjectResponseDTO>> response = ApiResponseDTO.<List<ProjectResponseDTO>>builder()
+                                .status("success")
+                                .message("Projects with reports retrieved successfully")
+                                .data(projects)
                                 .timestamp(Instant.now())
                                 .path(request.getRequestURI())
                                 .build();
