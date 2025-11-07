@@ -151,13 +151,14 @@ public class ProjectService {
         log.info("=== GET PROJECT BY ID ===");
         log.info("Project ID: {}", projectId);
 
-        Project project = projectRepository.findById(projectId)
+        // Use optimized query with JOIN FETCH to avoid lazy loading issues
+        Project project = projectRepository.findByIdWithDetails(projectId)
                 .orElseThrow(() -> new ProjectNotFoundException("Project not found: " + projectId));
 
-        if (project.getVehicle() != null) {
-            project.getVehicle().getVehicleId();
-            project.getVehicle().getModel();
-        }
+        // Fetch collections separately to avoid MultipleBagFetchException
+        List<Project> projects = List.of(project);
+        projectRepository.fetchAssignedEmployees(projects);
+        projectRepository.fetchTasks(projects);
 
         log.info("Project found: {} with {} tasks", project.getName(),
                  project.getTasks() != null ? project.getTasks().size() : 0);
