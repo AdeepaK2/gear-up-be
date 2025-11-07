@@ -156,9 +156,9 @@ public class ProjectService {
                 .orElseThrow(() -> new ProjectNotFoundException("Project not found: " + projectId));
 
         // Fetch collections separately to avoid MultipleBagFetchException
-        List<Project> projects = List.of(project);
-        projectRepository.fetchAssignedEmployees(projects);
-        projectRepository.fetchTasks(projects);
+        List<Long> projectIds = List.of(project.getProjectId());
+        projectRepository.fetchAssignedEmployees(projectIds);
+        projectRepository.fetchTasks(projectIds);
 
         log.info("Project found: {} with {} tasks", project.getName(),
                  project.getTasks() != null ? project.getTasks().size() : 0);
@@ -204,8 +204,11 @@ public class ProjectService {
 
             // Fetch collections separately to avoid MultipleBagFetchException
             if (!customerProjects.isEmpty()) {
-                projectRepository.fetchAssignedEmployees(customerProjects);
-                projectRepository.fetchTasks(customerProjects);
+                List<Long> projectIds = customerProjects.stream()
+                        .map(Project::getProjectId)
+                        .toList();
+                projectRepository.fetchAssignedEmployees(projectIds);
+                projectRepository.fetchTasks(projectIds);
             }
 
             List<ProjectResponseDTO> result = customerProjects.stream()
@@ -230,8 +233,11 @@ public class ProjectService {
         
         // Fetch collections separately to avoid MultipleBagFetchException
         if (!allProjects.isEmpty()) {
-            projectRepository.fetchAssignedEmployees(allProjects);
-            projectRepository.fetchTasks(allProjects);
+            List<Long> projectIds = allProjects.stream()
+                    .map(Project::getProjectId)
+                    .toList();
+            projectRepository.fetchAssignedEmployees(projectIds);
+            projectRepository.fetchTasks(projectIds);
         }
         
         log.info("Successfully fetched {} projects for admin", allProjects.size());
@@ -263,15 +269,27 @@ public class ProjectService {
         return response;
     }
 
+    @Transactional(readOnly = true)
     @RequiresRole({UserRole.EMPLOYEE, UserRole.ADMIN})
     public List<EmployeeProjectResponseDTO> getAssignedProjectsForCurrentEmployee() {
         Long employeeId = currentUserService.getCurrentEntityId();
+        log.info("🔍 Fetching projects for employee ID: {}", employeeId);
+        
+        if (employeeId == null) {
+            log.error("❌ Employee ID is null! Cannot fetch projects.");
+            return List.of(); // Return empty list instead of throwing exception
+        }
+        
         List<Project> projects = projectRepository.findByAssignedEmployeesEmployeeIdOrMainRepresentativeEmployeeIdWithDetails(employeeId);
+        log.info("📋 Found {} projects for employee {}", projects.size(), employeeId);
 
         // Fetch collections separately
         if (!projects.isEmpty()) {
-            projectRepository.fetchAssignedEmployees(projects);
-            projectRepository.fetchTasks(projects);
+            List<Long> projectIds = projects.stream()
+                    .map(Project::getProjectId)
+                    .toList();
+            projectRepository.fetchAssignedEmployees(projectIds);
+            projectRepository.fetchTasks(projectIds);
         }
 
         return projects.stream()
@@ -496,8 +514,11 @@ public class ProjectService {
 
             // Fetch collections separately
             if (!projects.isEmpty()) {
-                projectRepository.fetchAssignedEmployees(projects);
-                projectRepository.fetchTasks(projects);
+                List<Long> projectIds = projects.stream()
+                        .map(Project::getProjectId)
+                        .toList();
+                projectRepository.fetchAssignedEmployees(projectIds);
+                projectRepository.fetchTasks(projectIds);
             }
 
             List<ProjectResponseDTO> result = projects.stream()
