@@ -201,12 +201,11 @@ public class ProjectService {
             List<Project> customerProjects = projectRepository.findAllByCustomerIdWithDetails(customerId);
             log.info("Projects found for customer: {}", customerProjects.size());
 
-            // Initialize tasks for each project (lazy loading within transaction)
-            customerProjects.forEach(project -> {
-                if (project.getTasks() != null) {
-                    project.getTasks().size(); // Force lazy loading to avoid LazyInitializationException
-                }
-            });
+            // Fetch collections separately to avoid MultipleBagFetchException
+            if (!customerProjects.isEmpty()) {
+                projectRepository.fetchAssignedEmployees(customerProjects);
+                projectRepository.fetchTasks(customerProjects);
+            }
 
             List<ProjectResponseDTO> result = customerProjects.stream()
                     .map(projectDTOConverter::convertToResponseDto)
@@ -228,12 +227,13 @@ public class ProjectService {
         // ADMIN → all projects with details
         List<Project> allProjects = projectRepository.findAllWithDetails();
         
-        // Initialize tasks for each project (lazy loading within transaction)
-        allProjects.forEach(project -> {
-            if (project.getTasks() != null) {
-                project.getTasks().size(); // Force lazy loading to avoid LazyInitializationException
-            }
-        });
+        // Fetch collections separately to avoid MultipleBagFetchException
+        if (!allProjects.isEmpty()) {
+            projectRepository.fetchAssignedEmployees(allProjects);
+            projectRepository.fetchTasks(allProjects);
+        }
+        
+        log.info("Successfully fetched {} projects for admin", allProjects.size());
         
         return allProjects.stream()
                 .map(projectDTOConverter::convertToResponseDto)
@@ -266,6 +266,12 @@ public class ProjectService {
     public List<EmployeeProjectResponseDTO> getAssignedProjectsForCurrentEmployee() {
         Long employeeId = currentUserService.getCurrentEntityId();
         List<Project> projects = projectRepository.findByAssignedEmployeesEmployeeIdOrMainRepresentativeEmployeeIdWithDetails(employeeId);
+
+        // Fetch collections separately
+        if (!projects.isEmpty()) {
+            projectRepository.fetchAssignedEmployees(projects);
+            projectRepository.fetchTasks(projects);
+        }
 
         return projects.stream()
                 .map(p -> {
@@ -487,22 +493,11 @@ public class ProjectService {
                 return List.of();
             }
 
-            projects.forEach(project -> {
-                try {
-                    if (project.getTasks() != null) {
-                        project.getTasks().size();
-                    }
-                    if (project.getAssignedEmployees() != null) {
-                        project.getAssignedEmployees().size();
-                    }
-                    if (project.getMainRepresentativeEmployee() != null && project.getMainRepresentativeEmployee().getUser() != null) {
-                        project.getMainRepresentativeEmployee().getUser().getName();
-                    }
-                } catch (Exception e) {
-                    log.warn("Error initializing lazy-loaded relationships for project {}: {}", 
-                            project.getProjectId(), e.getMessage());
-                }
-            });
+            // Fetch collections separately
+            if (!projects.isEmpty()) {
+                projectRepository.fetchAssignedEmployees(projects);
+                projectRepository.fetchTasks(projects);
+            }
 
             List<ProjectResponseDTO> result = projects.stream()
                     .map(project -> {
