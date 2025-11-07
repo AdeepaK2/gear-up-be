@@ -14,6 +14,7 @@ import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
+import com.ead.gearup.dto.admin.AdminDashboardResponseDTO;
 import com.ead.gearup.dto.response.ApiResponseDTO;
 import com.ead.gearup.dto.user.UserCreateDTO;
 import com.ead.gearup.dto.response.UserResponseDTO;
@@ -24,6 +25,7 @@ import com.ead.gearup.model.User;
 import com.ead.gearup.repository.CustomerRepository;
 import com.ead.gearup.repository.EmployeeRepository;
 import com.ead.gearup.repository.UserRepository;
+import com.ead.gearup.service.AdminDashboardService;
 
 import java.util.List;
 import java.util.stream.Collectors;
@@ -52,6 +54,7 @@ public class AdminController {
     private final CustomerRepository customerRepository;
     private final EmployeeRepository employeeRepository;
     private final PasswordEncoder passwordEncoder;
+    private final AdminDashboardService adminDashboardService;
 
     @GetMapping("/check-init")
     @Operation(
@@ -185,6 +188,25 @@ public class AdminController {
                 .build();
 
         return ResponseEntity.status(HttpStatus.CREATED).body(response);
+    }
+
+    @GetMapping("/dashboard")
+    @Operation(
+        summary = "Retrieve admin dashboard metrics",
+        description = "Provides aggregated metrics and time series data for the admin dashboard."
+    )
+    public ResponseEntity<ApiResponseDTO<AdminDashboardResponseDTO>> getDashboard(HttpServletRequest request) {
+        AdminDashboardResponseDTO dashboard = adminDashboardService.getDashboard();
+
+        ApiResponseDTO<AdminDashboardResponseDTO> response = ApiResponseDTO.<AdminDashboardResponseDTO>builder()
+                .status("success")
+                .message("Dashboard data retrieved successfully")
+                .data(dashboard)
+                .timestamp(Instant.now())
+                .path(request.getRequestURI())
+                .build();
+
+        return ResponseEntity.ok(response);
     }
 
     @PostMapping(value = "/employees", consumes = MediaType.APPLICATION_JSON_VALUE, produces = MediaType.APPLICATION_JSON_VALUE)

@@ -301,4 +301,59 @@ public class ProjectController {
                 return ResponseEntity.ok(response);
         }
 
+        @PostMapping("/{projectId}/updates")
+        @Operation(summary = "Create a project update (Main Employee only)")
+        public ResponseEntity<ApiResponseDTO<ProjectUpdateResponseDTO>> createProjectUpdate(
+                        @PathVariable Long projectId,
+                        @Valid @RequestBody ProjectUpdateDTO updateDTO,
+                        HttpServletRequest request) {
+                ProjectUpdateResponseDTO projectUpdate = projectService.createProjectUpdate(projectId, updateDTO);
+
+                ApiResponseDTO<ProjectUpdateResponseDTO> response = ApiResponseDTO.<ProjectUpdateResponseDTO>builder()
+                                .status("success")
+                                .message("Project update created successfully")
+                                .data(projectUpdate)
+                                .timestamp(Instant.now())
+                                .path(request.getRequestURI())
+                                .build();
+
+                return ResponseEntity.status(HttpStatus.CREATED).body(response);
+        }
+
+        @GetMapping("/{projectId}/updates")
+        @Operation(summary = "Get all updates for a project")
+        public ResponseEntity<ApiResponseDTO<List<ProjectUpdateResponseDTO>>> getProjectUpdates(
+                        @PathVariable Long projectId,
+                        HttpServletRequest request) {
+                List<ProjectUpdateResponseDTO> updates = projectService.getProjectUpdates(projectId);
+
+                ApiResponseDTO<List<ProjectUpdateResponseDTO>> response = ApiResponseDTO.<List<ProjectUpdateResponseDTO>>builder()
+                                .status("success")
+                                .message("Project updates retrieved successfully")
+                                .data(updates)
+                                .timestamp(Instant.now())
+                                .path(request.getRequestURI())
+                                .build();
+
+                return ResponseEntity.ok(response);
+        }
+
+        @GetMapping("/{projectId}/tasks")
+        @Operation(summary = "Get all tasks/services for a project")
+        public ResponseEntity<ApiResponseDTO<List<TaskResponseDTO>>> getProjectTasks(
+                        @PathVariable Long projectId,
+                        HttpServletRequest request) {
+                List<TaskResponseDTO> tasks = projectService.getProjectTasks(projectId);
+
+                ApiResponseDTO<List<TaskResponseDTO>> response = ApiResponseDTO.<List<TaskResponseDTO>>builder()
+                                .status("success")
+                                .message("Project tasks retrieved successfully")
+                                .data(tasks)
+                                .timestamp(Instant.now())
+                                .path(request.getRequestURI())
+                                .build();
+
+                return ResponseEntity.ok(response);
+        }
+
 }

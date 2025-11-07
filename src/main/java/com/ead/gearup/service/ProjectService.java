@@ -19,7 +19,7 @@ import com.ead.gearup.util.TaskDTOConverter;
 import com.ead.gearup.validation.RequiresRole;
 
 import com.ead.gearup.util.ProjectDTOConverter;
-import jakarta.transaction.Transactional;
+import org.springframework.transaction.annotation.Transactional;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
@@ -46,6 +46,8 @@ public class ProjectService {
     private final EmployeeRepository employeeRepository;
     private final ProjectDTOConverter projectDTOConverter;
     private final TaskDTOConverter taskDTOConverter;
+    private final ProjectUpdateRepository projectUpdateRepository;
+    private final com.fasterxml.jackson.databind.ObjectMapper objectMapper;
 
 
     @Transactional
@@ -149,13 +151,14 @@ public class ProjectService {
         log.info("=== GET PROJECT BY ID ===");
         log.info("Project ID: {}", projectId);
 
-        Project project = projectRepository.findById(projectId)
+        // Use optimized query with JOIN FETCH to avoid lazy loading issues
+        Project project = projectRepository.findByIdWithDetails(projectId)
                 .orElseThrow(() -> new ProjectNotFoundException("Project not found: " + projectId));
 
-        if (project.getVehicle() != null) {
-            project.getVehicle().getVehicleId();
-            project.getVehicle().getModel();
-        }
+        // Fetch collections separately to avoid MultipleBagFetchException
+        List<Project> projects = List.of(project);
+        projectRepository.fetchAssignedEmployees(projects);
+        projectRepository.fetchTasks(projects);
 
         log.info("Project found: {} with {} tasks", project.getName(),
                  project.getTasks() != null ? project.getTasks().size() : 0);
@@ -199,12 +202,11 @@ public class ProjectService {
             List<Project> customerProjects = projectRepository.findAllByCustomerIdWithDetails(customerId);
             log.info("Projects found for customer: {}", customerProjects.size());
 
-            // Initialize tasks for each project (lazy loading within transaction)
-            customerProjects.forEach(project -> {
-                if (project.getTasks() != null) {
-                    project.getTasks().size(); // Force lazy loading to avoid LazyInitializationException
-                }
-            });
+            // Fetch collections separately to avoid MultipleBagFetchException
+            if (!customerProjects.isEmpty()) {
+                projectRepository.fetchAssignedEmployees(customerProjects);
+                projectRepository.fetchTasks(customerProjects);
+            }
 
             List<ProjectResponseDTO> result = customerProjects.stream()
                     .map(projectDTOConverter::convertToResponseDto)
@@ -226,12 +228,13 @@ public class ProjectService {
         // ADMIN → all projects with details
         List<Project> allProjects = projectRepository.findAllWithDetails();
         
-        // Initialize tasks for each project (lazy loading within transaction)
-        allProjects.forEach(project -> {
-            if (project.getTasks() != null) {
-                project.getTasks().size(); // Force lazy loading to avoid LazyInitializationException
-            }
-        });
+        // Fetch collections separately to avoid MultipleBagFetchException
+        if (!allProjects.isEmpty()) {
+            projectRepository.fetchAssignedEmployees(allProjects);
+            projectRepository.fetchTasks(allProjects);
+        }
+        
+        log.info("Successfully fetched {} projects for admin", allProjects.size());
         
         return allProjects.stream()
                 .map(projectDTOConverter::convertToResponseDto)
@@ -264,6 +267,12 @@ public class ProjectService {
     public List<EmployeeProjectResponseDTO> getAssignedProjectsForCurrentEmployee() {
         Long employeeId = currentUserService.getCurrentEntityId();
         List<Project> projects = projectRepository.findByAssignedEmployeesEmployeeIdOrMainRepresentativeEmployeeIdWithDetails(employeeId);
+
+        // Fetch collections separately
+        if (!projects.isEmpty()) {
+            projectRepository.fetchAssignedEmployees(projects);
+            projectRepository.fetchTasks(projects);
+        }
 
         return projects.stream()
                 .map(p -> {
@@ -485,22 +494,11 @@ public class ProjectService {
                 return List.of();
             }
 
-            projects.forEach(project -> {
-                try {
-                    if (project.getTasks() != null) {
-                        project.getTasks().size();
-                    }
-                    if (project.getAssignedEmployees() != null) {
-                        project.getAssignedEmployees().size();
-                    }
-                    if (project.getMainRepresentativeEmployee() != null && project.getMainRepresentativeEmployee().getUser() != null) {
-                        project.getMainRepresentativeEmployee().getUser().getName();
-                    }
-                } catch (Exception e) {
-                    log.warn("Error initializing lazy-loaded relationships for project {}: {}", 
-                            project.getProjectId(), e.getMessage());
-                }
-            });
+            // Fetch collections separately
+            if (!projects.isEmpty()) {
+                projectRepository.fetchAssignedEmployees(projects);
+                projectRepository.fetchTasks(projects);
+            }
 
             List<ProjectResponseDTO> result = projects.stream()
                     .map(project -> {
@@ -780,6 +778,160 @@ public class ProjectService {
         return projectDTOConverter.convertToResponseDto(verifiedProject);
     }
 
+    @Transactional
+    @RequiresRole(UserRole.EMPLOYEE)
+    public ProjectUpdateResponseDTO createProjectUpdate(Long projectId, ProjectUpdateDTO updateDTO) {
+        log.info("Creating project update for project ID: {}", projectId);
+        
+        Long currentEmployeeId = currentUserService.getCurrentEntityId();
+        
+        Project project = projectRepository.findById(projectId)
+                .orElseThrow(() -> new ProjectNotFoundException("Project not found: " + projectId));
+        
+        // Verify that the current employee is the main representative
+        if (project.getMainRepresentativeEmployee() == null || 
+            !project.getMainRepresentativeEmployee().getEmployeeId().equals(currentEmployeeId)) {
+            throw new UnauthorizedAccessException(
+                "Only the main representative can post updates for this project");
+        }
+        
+        Employee employee = employeeRepository.findById(currentEmployeeId)
+                .orElseThrow(() -> new EmployeeNotFoundException("Employee not found: " + currentEmployeeId));
+        
+        // Serialize task completions to JSON
+        String taskCompletionsJson = null;
+        if (updateDTO.getTaskCompletions() != null && !updateDTO.getTaskCompletions().isEmpty()) {
+            try {
+                taskCompletionsJson = objectMapper.writeValueAsString(updateDTO.getTaskCompletions());
+            } catch (Exception e) {
+                log.error("Failed to serialize task completions", e);
+            }
+        }
+        
+        ProjectUpdate projectUpdate = ProjectUpdate.builder()
+                .project(project)
+                .employee(employee)
+                .message(updateDTO.getMessage())
+                .completedTasks(updateDTO.getCompletedTasks())
+                .totalTasks(updateDTO.getTotalTasks())
+                .additionalCost(updateDTO.getAdditionalCost())
+                .additionalCostReason(updateDTO.getAdditionalCostReason())
+                .estimatedCompletionDate(updateDTO.getEstimatedCompletionDate() != null ? 
+                    LocalDate.parse(updateDTO.getEstimatedCompletionDate()) : null)
+                .updateType(com.ead.gearup.enums.ProjectUpdateType.valueOf(
+                    updateDTO.getUpdateType() != null ? updateDTO.getUpdateType() : "GENERAL"))
+                .taskCompletionsJson(taskCompletionsJson)
+                .overallCompletionPercentage(updateDTO.getOverallCompletionPercentage())
+                .build();
+        
+        ProjectUpdate savedUpdate = projectUpdateRepository.save(projectUpdate);
+        log.info("Project update created successfully with ID: {}", savedUpdate.getId());
+        
+        return convertToUpdateResponseDTO(savedUpdate);
+    }
+    
+    @Transactional(readOnly = true)
+    @RequiresRole({UserRole.CUSTOMER, UserRole.EMPLOYEE, UserRole.ADMIN})
+    public List<ProjectUpdateResponseDTO> getProjectUpdates(Long projectId) {
+        log.info("Fetching updates for project ID: {}", projectId);
+        
+        Project project = projectRepository.findById(projectId)
+                .orElseThrow(() -> new ProjectNotFoundException("Project not found: " + projectId));
+        
+        // Verify access based on role
+        UserRole role = currentUserService.getCurrentUserRole();
+        if (role == UserRole.CUSTOMER) {
+            Long customerId = currentUserService.getCurrentEntityId();
+            if (!project.getAppointment().getCustomer().getCustomerId().equals(customerId)) {
+                throw new UnauthorizedAccessException(
+                    "You can only view updates for your own projects");
+            }
+        } else if (role == UserRole.EMPLOYEE) {
+            Long employeeId = currentUserService.getCurrentEntityId();
+            boolean isAssigned = project.getAssignedEmployees().stream()
+                    .anyMatch(e -> e.getEmployeeId().equals(employeeId));
+            if (!isAssigned) {
+                throw new UnauthorizedAccessException(
+                    "You can only view updates for projects you are assigned to");
+            }
+        }
+        
+        List<ProjectUpdate> updates = projectUpdateRepository.findByProjectIdOrderByCreatedAtDesc(projectId);
+        
+        return updates.stream()
+                .map(this::convertToUpdateResponseDTO)
+                .toList();
+    }
+    
+    @Transactional(readOnly = true)
+    @RequiresRole({UserRole.CUSTOMER, UserRole.EMPLOYEE, UserRole.ADMIN})
+    public List<TaskResponseDTO> getProjectTasks(Long projectId) {
+        log.info("Fetching tasks for project ID: {}", projectId);
+        
+        Project project = projectRepository.findById(projectId)
+                .orElseThrow(() -> new ProjectNotFoundException("Project not found: " + projectId));
+        
+        // Verify access based on role
+        UserRole role = currentUserService.getCurrentUserRole();
+        if (role == UserRole.CUSTOMER) {
+            Long customerId = currentUserService.getCurrentEntityId();
+            if (!project.getAppointment().getCustomer().getCustomerId().equals(customerId)) {
+                throw new UnauthorizedAccessException(
+                    "You can only view tasks for your own projects");
+            }
+        } else if (role == UserRole.EMPLOYEE) {
+            Long employeeId = currentUserService.getCurrentEntityId();
+            boolean isAssigned = project.getAssignedEmployees().stream()
+                    .anyMatch(e -> e.getEmployeeId().equals(employeeId));
+            if (!isAssigned) {
+                throw new UnauthorizedAccessException(
+                    "You can only view tasks for projects you are assigned to");
+            }
+        }
+        
+        List<Task> tasks = taskRepository.findByProjectProjectId(projectId);
+        
+        return tasks.stream()
+                .map(taskDTOConverter::convertToResponseDto)
+                .toList();
+    }
+    
+    private ProjectUpdateResponseDTO convertToUpdateResponseDTO(ProjectUpdate update) {
+        // Deserialize task completions from JSON
+        List<ProjectUpdateResponseDTO.TaskCompletionDTO> taskCompletions = null;
+        if (update.getTaskCompletionsJson() != null && !update.getTaskCompletionsJson().isEmpty()) {
+            try {
+                taskCompletions = objectMapper.readValue(
+                    update.getTaskCompletionsJson(),
+                    objectMapper.getTypeFactory().constructCollectionType(
+                        List.class, ProjectUpdateResponseDTO.TaskCompletionDTO.class
+                    )
+                );
+            } catch (Exception e) {
+                log.error("Failed to deserialize task completions", e);
+            }
+        }
+        
+        return ProjectUpdateResponseDTO.builder()
+                .id(update.getId())
+                .projectId(update.getProject().getProjectId())
+                .projectName(update.getProject().getName())
+                .employeeId(update.getEmployee().getEmployeeId())
+                .employeeName(update.getEmployee().getUser().getName())
+                .message(update.getMessage())
+                .completedTasks(update.getCompletedTasks())
+                .totalTasks(update.getTotalTasks())
+                .additionalCost(update.getAdditionalCost())
+                .additionalCostReason(update.getAdditionalCostReason())
+                .estimatedCompletionDate(update.getEstimatedCompletionDate() != null ? 
+                    update.getEstimatedCompletionDate().toString() : null)
+                .updateType(update.getUpdateType().name())
+                .taskCompletions(taskCompletions)
+                .overallCompletionPercentage(update.getOverallCompletionPercentage())
+                .createdAt(update.getCreatedAt())
+                .updatedAt(update.getUpdatedAt())
+                .build();
+    }
 
 
 }

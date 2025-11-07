@@ -14,6 +14,21 @@ import org.springframework.stereotype.Repository;
 @Repository
 public interface ProjectRepository extends JpaRepository<Project, Long> {
 
+    long countByStatus(ProjectStatus status);
+
+    @Query("SELECT p.status, COUNT(p) FROM Project p GROUP BY p.status")
+    List<Object[]> countProjectsByStatus();
+
+
+    @Query(value = """
+            SELECT DATE_TRUNC('month', p.updated_at) AS month_start, COUNT(*)
+            FROM projects p
+            WHERE p.status = :status AND p.updated_at >= :startDate
+            GROUP BY month_start
+            ORDER BY month_start
+            """, nativeQuery = true)
+    List<Object[]> countProjectsByMonthAndStatus(@Param("status") String status, @Param("startDate") java.time.LocalDateTime startDate);
+
     @Query("SELECT p.status, COUNT(p) " +
            "FROM Project p " +
            "JOIN p.assignedEmployees e " +
@@ -28,8 +43,6 @@ public interface ProjectRepository extends JpaRepository<Project, Long> {
            "LEFT JOIN FETCH c.user " +
            "LEFT JOIN FETCH p.vehicle " +
            "LEFT JOIN FETCH p.appointment " +
-           "LEFT JOIN FETCH p.assignedEmployees e " +
-           "LEFT JOIN FETCH e.user " +
            "LEFT JOIN FETCH p.mainRepresentativeEmployee m " +
            "LEFT JOIN FETCH m.user " +
            "WHERE EXISTS (SELECT 1 FROM p.assignedEmployees e2 WHERE e2.employeeId = :employeeId) " +
@@ -47,8 +60,8 @@ public interface ProjectRepository extends JpaRepository<Project, Long> {
            "LEFT JOIN FETCH c.user " +
            "LEFT JOIN FETCH p.vehicle " +
            "LEFT JOIN FETCH p.appointment " +
-           "LEFT JOIN FETCH p.assignedEmployees " +
-           "LEFT JOIN FETCH p.mainRepresentativeEmployee " +
+           "LEFT JOIN FETCH p.mainRepresentativeEmployee mre " +
+           "LEFT JOIN FETCH mre.user " +
            "WHERE c.customerId = :customerId")
     List<Project> findAllByCustomerIdWithDetails(@Param("customerId") Long customerId);
 
@@ -57,17 +70,28 @@ public interface ProjectRepository extends JpaRepository<Project, Long> {
            "LEFT JOIN FETCH c.user " +
            "LEFT JOIN FETCH p.vehicle " +
            "LEFT JOIN FETCH p.appointment " +
-           "LEFT JOIN FETCH p.assignedEmployees " +
-           "LEFT JOIN FETCH p.mainRepresentativeEmployee")
+           "LEFT JOIN FETCH p.mainRepresentativeEmployee mre " +
+           "LEFT JOIN FETCH mre.user")
     List<Project> findAllWithDetails();
+    
+    @Query("SELECT DISTINCT p FROM Project p " +
+           "LEFT JOIN FETCH p.assignedEmployees ae " +
+           "LEFT JOIN FETCH ae.user " +
+           "WHERE p IN :projects")
+    List<Project> fetchAssignedEmployees(@Param("projects") List<Project> projects);
+    
+    @Query("SELECT DISTINCT p FROM Project p " +
+           "LEFT JOIN FETCH p.tasks " +
+           "WHERE p IN :projects")
+    List<Project> fetchTasks(@Param("projects") List<Project> projects);
 
     @Query("SELECT DISTINCT p FROM Project p " +
            "LEFT JOIN FETCH p.customer c " +
            "LEFT JOIN FETCH c.user " +
            "LEFT JOIN FETCH p.vehicle " +
            "LEFT JOIN FETCH p.appointment " +
-           "LEFT JOIN FETCH p.assignedEmployees " +
-           "LEFT JOIN FETCH p.mainRepresentativeEmployee " +
+           "LEFT JOIN FETCH p.mainRepresentativeEmployee mre " +
+           "LEFT JOIN FETCH mre.user " +
            "WHERE p.projectId = :projectId")
     Optional<Project> findByIdWithDetails(@Param("projectId") Long projectId);
 
@@ -76,8 +100,8 @@ public interface ProjectRepository extends JpaRepository<Project, Long> {
            "LEFT JOIN FETCH c.user " +
            "LEFT JOIN FETCH p.vehicle " +
            "LEFT JOIN FETCH p.appointment " +
-           "LEFT JOIN FETCH p.assignedEmployees " +
-           "LEFT JOIN FETCH p.mainRepresentativeEmployee " +
+           "LEFT JOIN FETCH p.mainRepresentativeEmployee mre " +
+           "LEFT JOIN FETCH mre.user " +
            "WHERE c.customerId = :customerId AND p.reportSentToCustomer = true AND p.status = :status")
     List<Project> findProjectsWithReportsByCustomerId(@Param("customerId") Long customerId, @Param("status") ProjectStatus status);
 

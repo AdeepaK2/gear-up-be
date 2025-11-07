@@ -23,8 +23,10 @@ public interface TaskRepository extends JpaRepository<Task, Long> {
             "t.estimated_hours AS estimatedHours, t.cost AS cost, t.status AS status, " +
             "t.is_assigned_project AS assignedProject, t.appointment_id AS appointmentId " +
             "FROM task t " +
-            "WHERE t.name ILIKE %:name%", nativeQuery = true)
+            "WHERE t.name ILIKE CONCAT('%', :name, '%')", nativeQuery = true)
     List<TaskSearchResponseProjection> findTaskSearchResultsNative(@Param("name") String name);
+
+    List<Task> findByProjectProjectId(Long projectId);
 
 }
 
