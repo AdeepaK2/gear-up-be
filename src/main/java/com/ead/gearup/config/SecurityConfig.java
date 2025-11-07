@@ -128,15 +128,27 @@ public class SecurityConfig {
     @Bean
     public CorsConfigurationSource corsConfigurationSource() {
         CorsConfiguration config = new CorsConfiguration();
-        config.setAllowedOrigins(List.of(
-                "http://localhost:3000",              // dev frontend
+        
+        // Use setAllowedOriginPatterns for more flexible matching
+        config.setAllowedOriginPatterns(List.of(
+                "http://localhost:*",                 // dev frontend (any port)
                 "https://gearup.code102.site",        // production frontend (Vercel)
+                "https://*.vercel.app",               // Vercel preview deployments
+                "https://*.herokuapp.com",            // Heroku backend/frontend
                 "http://135.171.192.76",              // k8s deployment
-                "http://localhost:80"                  // local docker
+                "http://192.168.49.2:*",              // minikube frontend NodePort
+                "http://gearup.local",                // ingress host
+                "http://34.42.2.114",                 // GKE frontend external IP
+                "http://34.42.2.114:*",               // GKE frontend with any port
+                "http://104.197.90.192:*",            // GKE backend IP
+                "http://*.compute.internal",          // GCP internal IPs
+                "http://*.internal:*"                 // Kubernetes internal services
         ));
+        
         config.setAllowedHeaders(List.of("*")); // Allow all headers
         config.setAllowedMethods(List.of("GET", "POST", "PUT", "DELETE", "PATCH", "OPTIONS"));
         config.setAllowCredentials(true);
+        config.setMaxAge(3600L); // Cache preflight response for 1 hour
 
         UrlBasedCorsConfigurationSource source = new UrlBasedCorsConfigurationSource();
         source.registerCorsConfiguration("/**", config);

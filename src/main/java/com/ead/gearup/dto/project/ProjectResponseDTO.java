@@ -18,7 +18,10 @@ public class ProjectResponseDTO {
     private Long customerId;
     private String customerName;
     private Long vehicleId;
+    private String vehicleName;
     private Long appointmentId;
 
     private List<Long> taskIds;
+    private List<Long> assignedEmployeeIds;
+    private Long mainRepresentativeEmployeeId;
 }

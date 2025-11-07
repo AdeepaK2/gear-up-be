@@ -96,15 +96,24 @@ public class AppointmentDTOConverter {
                     .orElseThrow(() -> new EmployeeNotFoundException(
                             "Employee not found: " + dto.getEmployeeId())));
 
-        if (dto.getTaskIds() != null && !dto.getTaskIds().isEmpty()) {
-            List<Task> tasks = taskRepository.findAllById(dto.getTaskIds());
+        if (dto.getTaskIds() != null) {
+            if (!dto.getTaskIds().isEmpty()) {
+                List<Task> newTasks = taskRepository.findAllById(dto.getTaskIds());
 
-            if (tasks.size() != dto.getTaskIds().size()) {
-                throw new IllegalArgumentException("One or more tasks not found: " + dto.getTaskIds());
+                if (newTasks.size() != dto.getTaskIds().size()) {
+                    throw new IllegalArgumentException("One or more tasks not found: " + dto.getTaskIds());
+                }
+
+                // Clear existing tasks and add new ones to maintain the same collection instance
+                appointment.getTasks().clear();
+                newTasks.forEach(task -> {
+                    task.setAppointment(appointment);
+                    appointment.getTasks().add(task);
+                });
+            } else {
+                // If empty list is provided, clear all tasks
+                appointment.getTasks().clear();
             }
-
-            tasks.forEach(task -> task.setAppointment(appointment));
-            appointment.setTasks(tasks);
         }
 
         return appointment;

@@ -111,6 +111,21 @@ public class JwtService {
                 .compact();
     }
 
+    public String generatePasswordResetToken(UserDetails userDetails) {
+        Map<String, Object> claims = new HashMap<>();
+        claims.put("token_type", "password_reset");
+
+        return Jwts.builder()
+                .claims(claims)
+                .subject(userDetails.getUsername())
+                .issuedAt(new Date(System.currentTimeMillis()))
+                .expiration(new Date(System.currentTimeMillis() + emailVerificationTokenDurationMs)) // 5 minutes
+                .signWith(getSignKey())
+                .header().add("typ", "JWT")
+                .and()
+                .compact();
+    }
+
     private SecretKey getSignKey() {
         byte[] keyBytes = Decoders.BASE64.decode(secretKey);
         return Keys.hmacShaKeyFor(keyBytes);

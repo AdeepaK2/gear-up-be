@@ -39,11 +39,14 @@ public class Task {
     @Column(nullable = false)
     private String description;
 
-    @Column(nullable = false)
+    @Column(name = "estimated_hours", nullable = false)
     private Integer estimatedHours;
 
-    @Column(nullable = false)
+    @Column(name = "estimated_cost", nullable = false)
     private Double estimatedCost;
+
+    @Column(name = "cost", nullable = false)
+    private Double cost;
 
     @Column(nullable = false)
     private String category;
@@ -51,10 +54,10 @@ public class Task {
     @Column(nullable = false)
     private String priority;
 
-    @Column(nullable = false)
+    @Column
     private String notes;
 
-    @Column(nullable = false)
+    @Column
     private String requestedBy;
 
     @ManyToOne
@@ -82,7 +85,7 @@ public class Task {
     }
 
     @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "employee_id", nullable = false)
+    @JoinColumn(name = "employee_id")
     private Employee employee;
 
 }

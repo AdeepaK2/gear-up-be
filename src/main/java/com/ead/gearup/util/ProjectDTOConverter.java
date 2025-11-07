@@ -50,23 +50,88 @@ public class ProjectDTOConverter {
         dto.setEndDate(project.getEndDate());
         dto.setStatus(project.getStatus());
 
-        if(project.getAppointment() != null){
-            dto.setAppointmentId(project.getAppointment().getAppointmentId());
-        }
-        if(project.getVehicle() != null){
-            dto.setVehicleId(project.getVehicle().getVehicleId());
-        }
-        if(project.getCustomer() != null){
-            dto.setCustomerId(project.getCustomer().getCustomerId());
-
-            if (project.getCustomer().getUser() != null) {
-                dto.setCustomerName(project.getCustomer().getUser().getName());
+        try {
+            if(project.getAppointment() != null){
+                dto.setAppointmentId(project.getAppointment().getAppointmentId());
             }
+        } catch (Exception e) {
+            System.err.println("Error accessing appointment: " + e.getMessage());
         }
-        if (project.getTasks() != null) {
-            dto.setTaskIds(project.getTasks().stream()
-                    .map(Task::getTaskId)
-                    .toList());
+
+        try {
+            if(project.getVehicle() != null){
+                dto.setVehicleId(project.getVehicle().getVehicleId());
+                String make = project.getVehicle().getMake();
+                String model = project.getVehicle().getModel();
+                String vehicleName = null;
+                if (make != null && !make.isEmpty() && model != null && !model.isEmpty()) {
+                    vehicleName = make + " " + model;
+                } else if (model != null && !model.isEmpty()) {
+                    vehicleName = model;
+                } else if (make != null && !make.isEmpty()) {
+                    vehicleName = make;
+                }
+                dto.setVehicleName(vehicleName);
+            }
+        } catch (Exception e) {
+            System.err.println("Error accessing vehicle: " + e.getMessage());
+        }
+
+        try {
+            if(project.getCustomer() != null){
+                dto.setCustomerId(project.getCustomer().getCustomerId());
+
+                try {
+                    if (project.getCustomer().getUser() != null) {
+                        dto.setCustomerName(project.getCustomer().getUser().getName());
+                    }
+                } catch (Exception e) {
+                    System.err.println("Error accessing customer user: " + e.getMessage());
+                    dto.setCustomerName("Unknown");
+                }
+            }
+        } catch (Exception e) {
+            System.err.println("Error accessing customer: " + e.getMessage());
+        }
+
+        try {
+            if (project.getTasks() != null) {
+                List<Long> taskIds = project.getTasks().stream()
+                        .map(Task::getTaskId)
+                        .toList();
+                System.out.println("Converting project " + project.getProjectId() + " with " + taskIds.size() + " tasks: " + taskIds);
+                dto.setTaskIds(taskIds);
+            } else {
+                System.out.println("Project " + project.getProjectId() + " has null tasks collection");
+            }
+        } catch (Exception e) {
+            System.err.println("Error accessing tasks for project " + project.getProjectId() + ": " + e.getMessage());
+            e.printStackTrace();
+        }
+
+        try {
+            if (project.getAssignedEmployees() != null) {
+                List<Long> assignedEmployeeIds = project.getAssignedEmployees().stream()
+                        .map(employee -> employee.getEmployeeId())
+                        .toList();
+                dto.setAssignedEmployeeIds(assignedEmployeeIds);
+            } else {
+                dto.setAssignedEmployeeIds(List.of());
+            }
+        } catch (Exception e) {
+            System.err.println("Error accessing assigned employees for project " + project.getProjectId() + ": " + e.getMessage());
+            dto.setAssignedEmployeeIds(List.of());
+        }
+
+        try {
+            if (project.getMainRepresentativeEmployee() != null) {
+                dto.setMainRepresentativeEmployeeId(project.getMainRepresentativeEmployee().getEmployeeId());
+            } else {
+                dto.setMainRepresentativeEmployeeId(null);
+            }
+        } catch (Exception e) {
+            System.err.println("Error accessing main representative employee for project " + project.getProjectId() + ": " + e.getMessage());
+            dto.setMainRepresentativeEmployeeId(null);
         }
 
         return dto;

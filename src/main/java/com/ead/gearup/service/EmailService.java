@@ -179,4 +179,40 @@ public class EmailService {
             throw new EmailSendingException("Failed to send customer deactivation email: " + e.getMessage(), e);
         }
     }
+
+    public void sendPasswordResetEmail(String to, String name, String resetUrl) {
+        // For development: Skip actual email sending if disabled
+        if (!emailVerificationEnabled) {
+            log.info("📧 Email sending DISABLED for development");
+            log.info("📧 Password reset email would be sent to: {}", to);
+            log.info("📧 Reset URL: {}", resetUrl);
+            return;
+        }
+
+        try {
+            String subject = "Reset Your Password - Gear Up";
+
+            MimeMessage message = mailSender.createMimeMessage();
+            MimeMessageHelper helper = new MimeMessageHelper(message, true, "UTF-8");
+
+            // Prepare Thymeleaf context
+            Context context = new Context();
+            context.setVariable("name", name);
+            context.setVariable("resetUrl", resetUrl);
+
+            // Generate HTML content from template
+            String htmlContent = templateEngine.process("password-reset.html", context);
+
+            helper.setTo(to);
+            helper.setSubject(subject);
+            helper.setText(htmlContent, true);
+
+            mailSender.send(message);
+            log.info("📧 Password reset email sent successfully to: {}", to);
+
+        } catch (MessagingException e) {
+            log.error("❌ Failed to send password reset email to {}: {}", to, e.getMessage());
+            throw new EmailSendingException("Failed to send password reset email: " + e.getMessage(), e);
+        }
+    }
 }

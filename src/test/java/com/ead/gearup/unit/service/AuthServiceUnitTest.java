@@ -1,4 +1,4 @@
-package com.ead.gearup.service;
+package com.ead.gearup.unit.service;
 
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyMap;
@@ -36,6 +36,8 @@ import com.ead.gearup.exception.ResendEmailCooldownException;
 import com.ead.gearup.model.User;
 import com.ead.gearup.model.UserPrinciple;
 import com.ead.gearup.repository.UserRepository;
+import com.ead.gearup.service.AuthService;
+import com.ead.gearup.service.EmailVerificationService;
 import com.ead.gearup.service.auth.CustomUserDetailsService;
 import com.ead.gearup.service.auth.JwtService;
 

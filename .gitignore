@@ -67,3 +67,8 @@ replay_pid*
 .env
 .env.*
 !.env.example        # keep a sample template
+
+### Kubernetes / Docker Runtime ###
+# K8s secrets and configs (handled by kubectl)
+k8s/secrets-local.yaml
+k8s/*-local.yaml

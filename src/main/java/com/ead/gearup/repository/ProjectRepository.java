@@ -1,6 +1,7 @@
 package com.ead.gearup.repository;
 
 import com.ead.gearup.model.Project;
+import com.ead.gearup.enums.ProjectStatus;
 
 import java.util.List;
 import java.util.Optional;
@@ -22,6 +23,62 @@ public interface ProjectRepository extends JpaRepository<Project, Long> {
 
     List<Project> findByAssignedEmployeesEmployeeId(Long employeeId);
 
+    @Query("SELECT DISTINCT p FROM Project p " +
+           "LEFT JOIN FETCH p.customer c " +
+           "LEFT JOIN FETCH c.user " +
+           "LEFT JOIN FETCH p.vehicle " +
+           "LEFT JOIN FETCH p.appointment " +
+           "LEFT JOIN FETCH p.assignedEmployees e " +
+           "LEFT JOIN FETCH e.user " +
+           "LEFT JOIN FETCH p.mainRepresentativeEmployee m " +
+           "LEFT JOIN FETCH m.user " +
+           "WHERE EXISTS (SELECT 1 FROM p.assignedEmployees e2 WHERE e2.employeeId = :employeeId) " +
+           "   OR (p.mainRepresentativeEmployee IS NOT NULL AND p.mainRepresentativeEmployee.employeeId = :employeeId)")
+    List<Project> findByAssignedEmployeesEmployeeIdOrMainRepresentativeEmployeeIdWithDetails(@Param("employeeId") Long employeeId);
+
     Optional<Project> findByProjectIdAndAssignedEmployeesEmployeeId(Long projectId, Long employeeId);
+
+    Optional<Project> findByAppointmentAppointmentId(Long appointmentId);
+
+    boolean existsByAppointmentAppointmentId(Long appointmentId);
+
+    @Query("SELECT p FROM Project p " +
+           "LEFT JOIN FETCH p.customer c " +
+           "LEFT JOIN FETCH c.user " +
+           "LEFT JOIN FETCH p.vehicle " +
+           "LEFT JOIN FETCH p.appointment " +
+           "LEFT JOIN FETCH p.assignedEmployees " +
+           "LEFT JOIN FETCH p.mainRepresentativeEmployee " +
+           "WHERE c.customerId = :customerId")
+    List<Project> findAllByCustomerIdWithDetails(@Param("customerId") Long customerId);
+
+    @Query("SELECT DISTINCT p FROM Project p " +
+           "LEFT JOIN FETCH p.customer c " +
+           "LEFT JOIN FETCH c.user " +
+           "LEFT JOIN FETCH p.vehicle " +
+           "LEFT JOIN FETCH p.appointment " +
+           "LEFT JOIN FETCH p.assignedEmployees " +
+           "LEFT JOIN FETCH p.mainRepresentativeEmployee")
+    List<Project> findAllWithDetails();
+
+    @Query("SELECT DISTINCT p FROM Project p " +
+           "LEFT JOIN FETCH p.customer c " +
+           "LEFT JOIN FETCH c.user " +
+           "LEFT JOIN FETCH p.vehicle " +
+           "LEFT JOIN FETCH p.appointment " +
+           "LEFT JOIN FETCH p.assignedEmployees " +
+           "LEFT JOIN FETCH p.mainRepresentativeEmployee " +
+           "WHERE p.projectId = :projectId")
+    Optional<Project> findByIdWithDetails(@Param("projectId") Long projectId);
+
+    @Query("SELECT DISTINCT p FROM Project p " +
+           "LEFT JOIN FETCH p.customer c " +
+           "LEFT JOIN FETCH c.user " +
+           "LEFT JOIN FETCH p.vehicle " +
+           "LEFT JOIN FETCH p.appointment " +
+           "LEFT JOIN FETCH p.assignedEmployees " +
+           "LEFT JOIN FETCH p.mainRepresentativeEmployee " +
+           "WHERE c.customerId = :customerId AND p.reportSentToCustomer = true AND p.status = :status")
+    List<Project> findProjectsWithReportsByCustomerId(@Param("customerId") Long customerId, @Param("status") ProjectStatus status);
 
 }

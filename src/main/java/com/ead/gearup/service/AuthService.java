@@ -13,7 +13,9 @@ import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 
+import com.ead.gearup.dto.request.ForgotPasswordRequestDTO;
 import com.ead.gearup.dto.request.ResendEmailRequestDTO;
+import com.ead.gearup.dto.request.ResetPasswordRequestDTO;
 import com.ead.gearup.dto.response.JwtTokensDTO;
 import com.ead.gearup.dto.response.LoginResponseDTO;
 import com.ead.gearup.dto.response.UserResponseDTO;
@@ -50,6 +52,7 @@ public class AuthService {
     private final JwtService jwtService;
     private final CustomUserDetailsService customUserDetailsService;
     private final EmailVerificationService emailVerificationService;
+    private final EmailService emailService;
 
     private static final int COOLDOWN_MINUTES = 5;
 
@@ -182,5 +185,55 @@ public class AuthService {
         loginResponse.setAccessToken(newAccessToken);
 
         return loginResponse;
+    }
+
+    public void forgotPassword(ForgotPasswordRequestDTO request) {
+        String email = request.getEmail().trim().toLowerCase();
+
+        User user = userRepository.findByEmail(email)
+                .orElseThrow(() -> new UserNotFoundException("User not found with email: " + email));
+
+        // Generate password reset token
+        UserDetails userDetails = customUserDetailsService.loadUserByUsername(email);
+        String resetToken = jwtService.generatePasswordResetToken(userDetails);
+
+        // Send password reset email
+        String resetUrl = "http://localhost:3000/reset-password?token=" + resetToken;
+        emailService.sendPasswordResetEmail(user.getEmail(), user.getName(), resetUrl);
+
+        // Update last password reset timestamp
+        user.setLastVerificationEmailSent(LocalDateTime.now());
+        userRepository.save(user);
+    }
+
+    public void resetPassword(ResetPasswordRequestDTO request) {
+        // Validate password match
+        if (!request.getNewPassword().equals(request.getConfirmPassword())) {
+            throw new IllegalArgumentException("Passwords do not match");
+        }
+
+        try {
+            // Extract and validate token
+            String username = jwtService.extractUsername(request.getToken());
+            String tokenType = jwtService.extractClaim(request.getToken(),
+                claims -> claims.get("token_type", String.class));
+
+            if (!"password_reset".equals(tokenType)) {
+                throw new IllegalArgumentException("Invalid token type");
+            }
+
+            // Find user
+            User user = userRepository.findByEmail(username)
+                    .orElseThrow(() -> new UserNotFoundException("User not found"));
+
+            // Update password
+            user.setPassword(encoder.encode(request.getNewPassword()));
+            userRepository.save(user);
+
+        } catch (ExpiredJwtException e) {
+            throw new IllegalArgumentException("Password reset link has expired");
+        } catch (Exception e) {
+            throw new IllegalArgumentException("Invalid or expired token");
+        }
     }
 }

@@ -37,6 +37,7 @@ public class Project {
 
 
     @Enumerated(EnumType.STRING)
+    @Column(name = "status", columnDefinition = "VARCHAR(50)")
     private ProjectStatus status;
 
     @ManyToOne(fetch = FetchType.LAZY)
@@ -73,6 +74,10 @@ public class Project {
     @Builder.Default
     private List<Employee> assignedEmployees = new ArrayList<>();
 
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "main_representative_employee_id")
+    private Employee mainRepresentativeEmployee;
+
     // 🆕 Additional fields
     @ElementCollection
     @CollectionTable(
@@ -91,6 +96,9 @@ public class Project {
 
     @Builder.Default
     private Integer acceptedServicesCount = 0;
+
+    @Builder.Default
+    private Boolean reportSentToCustomer = false;
 
     @CreationTimestamp
     private LocalDateTime createdAt;

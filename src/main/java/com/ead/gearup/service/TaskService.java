@@ -45,12 +45,16 @@ public class TaskService {
     @RequiresRole({ UserRole.EMPLOYEE, UserRole.ADMIN })
     public TaskResponseDTO createTask(TaskCreateDTO taskCreateDTO) {
 
-        Appointment appointment = appointmentRepository.findById(taskCreateDTO.getAppointmentId())
-                .orElseThrow(() -> new AppointmentNotFoundException(
-                        "Appointment not found" + taskCreateDTO.getAppointmentId()));
-
         Task task = taskDTOConverter.convertToEntity(taskCreateDTO);
-        task.setAppointment(appointment);
+
+        // Only set appointment if appointmentId is provided
+        if (taskCreateDTO.getAppointmentId() != null) {
+            Appointment appointment = appointmentRepository.findById(taskCreateDTO.getAppointmentId())
+                    .orElseThrow(() -> new AppointmentNotFoundException(
+                            "Appointment not found: " + taskCreateDTO.getAppointmentId()));
+            task.setAppointment(appointment);
+        }
+
         taskRepository.save(task);
 
         return taskDTOConverter.convertToResponseDto(task);
@@ -65,8 +69,12 @@ public class TaskService {
 
         if (role == UserRole.CUSTOMER) {
             Long customerId = currentUserService.getCurrentEntityId();
-            if (task.getProject() == null ||
-                    !task.getProject().getCustomer().getCustomerId().equals(customerId)) {
+            boolean hasAccessViaProject = task.getProject() != null &&
+                    task.getProject().getCustomer().getCustomerId().equals(customerId);
+            boolean hasAccessViaAppointment = task.getAppointment() != null &&
+                    task.getAppointment().getCustomer().getCustomerId().equals(customerId);
+
+            if (!hasAccessViaProject && !hasAccessViaAppointment) {
                 throw new TaskNotFoundException("Task not found " + taskId);
             }
         }
@@ -92,8 +100,15 @@ public class TaskService {
             Long customerId = currentUserService.getCurrentEntityId();
 
             return taskRepository.findAll().stream()
-                    .filter(t -> t.getProject() != null
+                    .filter(t ->
+                        // Include tasks with projects belonging to this customer
+                        (t.getProject() != null
                             && t.getProject().getCustomer().getCustomerId().equals(customerId))
+                        ||
+                        // Also include tasks with appointments belonging to this customer
+                        (t.getAppointment() != null
+                            && t.getAppointment().getCustomer().getCustomerId().equals(customerId))
+                    )
                     .map(taskDTOConverter::convertToResponseDto)
                     .toList();
         }
