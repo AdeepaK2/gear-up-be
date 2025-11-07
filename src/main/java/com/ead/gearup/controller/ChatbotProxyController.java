@@ -81,6 +81,7 @@ public class ChatbotProxyController {
             }
 
             Long customerId = customerService.getCustomerIdByEmail(customerEmail);
+            Long userId = getCurrentUserId();
 
             // Audit log - chat request initiated
             auditLogService.logChatRequest(customerEmail, questionPreview, true);
@@ -94,6 +95,7 @@ public class ChatbotProxyController {
                     .sessionId(request.getSessionId())
                     .conversationHistory(request.getConversationHistory())
                     .customerId(customerId)
+                    .userId(userId)
                     .customerEmail(customerEmail)
                     .authToken(jwtToken)
                     .build();
