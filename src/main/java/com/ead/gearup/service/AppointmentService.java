@@ -22,6 +22,7 @@ import com.ead.gearup.exception.UnauthorizedAppointmentAccessException;
 import com.ead.gearup.exception.VehicleNotFoundException;
 import com.ead.gearup.model.Appointment;
 import com.ead.gearup.model.Customer;
+import com.ead.gearup.model.User;
 import com.ead.gearup.model.Vehicle;
 import com.ead.gearup.repository.AppointmentRepository;
 import com.ead.gearup.repository.CustomerRepository;
@@ -31,10 +32,12 @@ import com.ead.gearup.util.AppointmentDTOConverter;
 import com.ead.gearup.validation.RequiresRole;
 
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 
 @Service
 @RequiredArgsConstructor
 @Transactional
+@Slf4j
 public class AppointmentService {
 
     private final CurrentUserService currentUserService;
@@ -45,6 +48,11 @@ public class AppointmentService {
 
     @RequiresRole(UserRole.CUSTOMER)
     public AppointmentResponseDTO createAppointment(AppointmentCreateDTO appointmentCreateDTO) {
+        // Validate appointment date is not in the past
+        if (appointmentCreateDTO.getAppointmentDate() != null && appointmentCreateDTO.getAppointmentDate().isBefore(LocalDate.now())) {
+            throw new IllegalArgumentException("Cannot create appointment for a past date. Please select a current or future date.");
+        }
+
         Customer customer = customerRepository.findById(currentUserService.getCurrentEntityId())
                 .orElseThrow(() -> new CustomerNotFoundException(
                         "Customer not found: " + currentUserService.getCurrentEntityId()));
@@ -60,11 +68,39 @@ public class AppointmentService {
     }
 
     public List<AppointmentResponseDTO> getAllAppointmentsForCurrentCustomer() {
-        Customer customer = customerRepository.findById(currentUserService.getCurrentEntityId())
-                .orElseThrow(() -> new CustomerNotFoundException(
-                        "Customer not found: " + currentUserService.getCurrentEntityId()));
+        log.debug("Getting appointments for current customer");
+        Long currentEntityId = currentUserService.getCurrentEntityId();
+        log.debug("Current entity ID: {}", currentEntityId);
+        
+        Customer customer;
+        
+        if (currentEntityId == null) {
+            log.warn("Current entity ID is null, trying to find customer by user");
+            // Try to find customer by user instead
+            User currentUser = currentUserService.getCurrentUser();
+            log.debug("Current user: {} ({})", currentUser.getName(), currentUser.getEmail());
+            
+            customer = customerRepository.findByUser(currentUser)
+                    .orElseThrow(() -> {
+                        log.error("Customer profile not found for user: {} ({})", currentUser.getName(), currentUser.getEmail());
+                        return new CustomerNotFoundException(
+                                "Customer profile not found for user: " + currentUser.getEmail());
+                    });
+            
+            log.debug("Found customer by user lookup: {}", customer.getCustomerId());
+        } else {
+            customer = customerRepository.findById(currentEntityId)
+                    .orElseThrow(() -> {
+                        log.error("Customer not found with ID: {}", currentEntityId);
+                        return new CustomerNotFoundException(
+                                "Customer not found with ID: " + currentEntityId);
+                    });
+            
+            log.debug("Found customer by ID: {}", customer.getCustomerId());
+        }
 
         List<Appointment> appointments = appointmentRepository.findByCustomer(customer);
+        log.debug("Found {} appointments for customer {}", appointments.size(), customer.getCustomerId());
 
         return appointments.stream()
                 .map(converter::convertToResponseDto)
@@ -72,9 +108,43 @@ public class AppointmentService {
     }
 
     public AppointmentResponseDTO getAppointmentById(Long appointmentId) {
+        log.debug("Getting appointment by ID: {}", appointmentId);
+        
         Appointment appointment = appointmentRepository.findById(appointmentId)
                 .orElseThrow(() -> new AppointmentNotFoundException("Appointment not found: " + appointmentId));
 
+        // Authorization check: only allow access to own appointments for customers
+        UserRole currentRole = currentUserService.getCurrentUserRole();
+        log.debug("Current user role: {}", currentRole);
+        
+        if (currentRole == UserRole.CUSTOMER) {
+            Long currentCustomerId = currentUserService.getCurrentEntityId();
+            log.debug("Current customer ID: {}, Appointment customer ID: {}", currentCustomerId, appointment.getCustomer().getCustomerId());
+            
+            if (currentCustomerId == null) {
+                log.warn("Customer ID is null for authenticated customer");
+                // Try fallback user lookup
+                try {
+                    User currentUser = currentUserService.getCurrentUser();
+                    if (currentUser != null) {
+                        Customer customer = customerRepository.findByUser(currentUser).orElse(null);
+                        if (customer != null && !appointment.getCustomer().getCustomerId().equals(customer.getCustomerId())) {
+                            throw new UnauthorizedAppointmentAccessException("You can only view your own appointments");
+                        }
+                    } else {
+                        throw new UnauthorizedAppointmentAccessException("Unable to verify appointment ownership");
+                    }
+                } catch (Exception e) {
+                    log.error("Error during fallback customer lookup: {}", e.getMessage());
+                    throw new UnauthorizedAppointmentAccessException("Unable to verify appointment ownership");
+                }
+            } else if (!appointment.getCustomer().getCustomerId().equals(currentCustomerId)) {
+                throw new UnauthorizedAppointmentAccessException("You can only view your own appointments");
+            }
+        }
+        // Employees and admins can view any appointment
+        
+        log.debug("Authorization successful for appointment: {}", appointmentId);
         return converter.convertToResponseDto(appointment);
     }
 
