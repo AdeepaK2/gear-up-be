@@ -25,7 +25,15 @@ public class AppointmentDTOConverter {
         appointment.setCustomer(customer);
         appointment.setDate(dto.getAppointmentDate());
         appointment.setStartTime(dto.getStartTime());
-        appointment.setEndTime(dto.getEndTime());
+
+        // Automatically calculate end time: start time + 1 hour
+        if (dto.getEndTime() != null) {
+            appointment.setEndTime(dto.getEndTime());
+        } else if (dto.getStartTime() != null) {
+            // Add 1 hour to start time
+            appointment.setEndTime(dto.getStartTime().plusHours(1));
+        }
+
         appointment.setNotes(dto.getNotes());
         appointment.setCustomerIssue(dto.getCustomerIssue());
 
