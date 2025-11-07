@@ -46,6 +46,7 @@ public class ProjectService {
     private final EmployeeRepository employeeRepository;
     private final ProjectDTOConverter projectDTOConverter;
     private final TaskDTOConverter taskDTOConverter;
+    private final ProjectUpdateRepository projectUpdateRepository;
 
 
     @Transactional
@@ -780,6 +781,97 @@ public class ProjectService {
         return projectDTOConverter.convertToResponseDto(verifiedProject);
     }
 
+    @Transactional
+    @RequiresRole(UserRole.EMPLOYEE)
+    public ProjectUpdateResponseDTO createProjectUpdate(Long projectId, ProjectUpdateDTO updateDTO) {
+        log.info("Creating project update for project ID: {}", projectId);
+        
+        Long currentEmployeeId = currentUserService.getCurrentEntityId();
+        
+        Project project = projectRepository.findById(projectId)
+                .orElseThrow(() -> new ProjectNotFoundException("Project not found: " + projectId));
+        
+        // Verify that the current employee is the main representative
+        if (project.getMainRepresentativeEmployee() == null || 
+            !project.getMainRepresentativeEmployee().getEmployeeId().equals(currentEmployeeId)) {
+            throw new UnauthorizedAccessException(
+                "Only the main representative can post updates for this project");
+        }
+        
+        Employee employee = employeeRepository.findById(currentEmployeeId)
+                .orElseThrow(() -> new EmployeeNotFoundException("Employee not found: " + currentEmployeeId));
+        
+        ProjectUpdate projectUpdate = ProjectUpdate.builder()
+                .project(project)
+                .employee(employee)
+                .message(updateDTO.getMessage())
+                .completedTasks(updateDTO.getCompletedTasks())
+                .totalTasks(updateDTO.getTotalTasks())
+                .additionalCost(updateDTO.getAdditionalCost())
+                .additionalCostReason(updateDTO.getAdditionalCostReason())
+                .estimatedCompletionDate(updateDTO.getEstimatedCompletionDate() != null ? 
+                    LocalDate.parse(updateDTO.getEstimatedCompletionDate()) : null)
+                .updateType(com.ead.gearup.enums.ProjectUpdateType.valueOf(
+                    updateDTO.getUpdateType() != null ? updateDTO.getUpdateType() : "GENERAL"))
+                .build();
+        
+        ProjectUpdate savedUpdate = projectUpdateRepository.save(projectUpdate);
+        log.info("Project update created successfully with ID: {}", savedUpdate.getId());
+        
+        return convertToUpdateResponseDTO(savedUpdate);
+    }
+    
+    @RequiresRole({UserRole.CUSTOMER, UserRole.EMPLOYEE, UserRole.ADMIN})
+    public List<ProjectUpdateResponseDTO> getProjectUpdates(Long projectId) {
+        log.info("Fetching updates for project ID: {}", projectId);
+        
+        Project project = projectRepository.findById(projectId)
+                .orElseThrow(() -> new ProjectNotFoundException("Project not found: " + projectId));
+        
+        // Verify access based on role
+        UserRole role = currentUserService.getCurrentUserRole();
+        if (role == UserRole.CUSTOMER) {
+            Long customerId = currentUserService.getCurrentEntityId();
+            if (!project.getAppointment().getCustomer().getCustomerId().equals(customerId)) {
+                throw new UnauthorizedAccessException(
+                    "You can only view updates for your own projects");
+            }
+        } else if (role == UserRole.EMPLOYEE) {
+            Long employeeId = currentUserService.getCurrentEntityId();
+            boolean isAssigned = project.getAssignedEmployees().stream()
+                    .anyMatch(e -> e.getEmployeeId().equals(employeeId));
+            if (!isAssigned) {
+                throw new UnauthorizedAccessException(
+                    "You can only view updates for projects you are assigned to");
+            }
+        }
+        
+        List<ProjectUpdate> updates = projectUpdateRepository.findByProjectIdOrderByCreatedAtDesc(projectId);
+        
+        return updates.stream()
+                .map(this::convertToUpdateResponseDTO)
+                .toList();
+    }
+    
+    private ProjectUpdateResponseDTO convertToUpdateResponseDTO(ProjectUpdate update) {
+        return ProjectUpdateResponseDTO.builder()
+                .id(update.getId())
+                .projectId(update.getProject().getProjectId())
+                .projectName(update.getProject().getName())
+                .employeeId(update.getEmployee().getEmployeeId())
+                .employeeName(update.getEmployee().getFirstName() + " " + update.getEmployee().getLastName())
+                .message(update.getMessage())
+                .completedTasks(update.getCompletedTasks())
+                .totalTasks(update.getTotalTasks())
+                .additionalCost(update.getAdditionalCost())
+                .additionalCostReason(update.getAdditionalCostReason())
+                .estimatedCompletionDate(update.getEstimatedCompletionDate() != null ? 
+                    update.getEstimatedCompletionDate().toString() : null)
+                .updateType(update.getUpdateType().name())
+                .createdAt(update.getCreatedAt())
+                .updatedAt(update.getUpdatedAt())
+                .build();
+    }
 
 
 }
