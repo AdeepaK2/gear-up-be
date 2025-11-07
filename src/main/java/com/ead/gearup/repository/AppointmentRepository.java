@@ -34,6 +34,9 @@ public interface AppointmentRepository extends JpaRepository<Appointment, Long> 
         @Param("statuses") List<AppointmentStatus> statuses
     );
 
+    @Query("SELECT COUNT(a) FROM Appointment a WHERE a.date >= :startDate AND a.status IN :statuses")
+    long countUpcomingAppointments(@Param("startDate") LocalDate startDate, @Param("statuses") List<AppointmentStatus> statuses);
+
     @Query(value = """
         SELECT DISTINCT a.* FROM appointment a
         JOIN customers c ON a.customer_id = c.customer_id

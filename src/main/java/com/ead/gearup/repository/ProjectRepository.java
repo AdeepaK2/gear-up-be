@@ -14,6 +14,21 @@ import org.springframework.stereotype.Repository;
 @Repository
 public interface ProjectRepository extends JpaRepository<Project, Long> {
 
+    long countByStatus(ProjectStatus status);
+
+    @Query("SELECT p.status, COUNT(p) FROM Project p GROUP BY p.status")
+    List<Object[]> countProjectsByStatus();
+
+
+    @Query(value = """
+            SELECT DATE_TRUNC('month', p.updated_at) AS month_start, COUNT(*)
+            FROM projects p
+            WHERE p.status = :status AND p.updated_at >= :startDate
+            GROUP BY month_start
+            ORDER BY month_start
+            """, nativeQuery = true)
+    List<Object[]> countProjectsByMonthAndStatus(@Param("status") String status, @Param("startDate") java.time.LocalDateTime startDate);
+
     @Query("SELECT p.status, COUNT(p) " +
            "FROM Project p " +
            "JOIN p.assignedEmployees e " +
