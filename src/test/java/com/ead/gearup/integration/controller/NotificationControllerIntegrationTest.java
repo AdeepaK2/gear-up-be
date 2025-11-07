@@ -28,48 +28,26 @@ import com.ead.gearup.exception.ResourceNotFoundException;
 import com.ead.gearup.service.NotificationService;
 import com.fasterxml.jackson.databind.ObjectMapper;
 
-/**
- * INTEGRATION TEST for NotificationController
- * 
- * What we're testing:
- * - Complete HTTP request/response flow
- * - Controller → Service interaction
- * - Spring Security authentication
- * - JSON serialization/deserialization
- * - Error handling across layers
- * 
- * What's DIFFERENT from Unit Tests:
- * - Starts the FULL Spring application context (@SpringBootTest)
- * - Uses MockMvc to simulate HTTP requests
- * - Tests the ENTIRE request pipeline (not just one class)
- * - Tests how components work TOGETHER
- * 
- * Why mock the service?
- * - We already tested NotificationService in unit tests
- * - Integration tests focus on controller layer and HTTP
- * - Faster than using real database
- * - Predictable test data
- */
+// Integration tests for NotificationController
 @SpringBootTest
 @AutoConfigureMockMvc
 @SuppressWarnings("removal")
 class NotificationControllerIntegrationTest {
 
     @Autowired
-    private MockMvc mockMvc; // Simulates HTTP requests
+    private MockMvc mockMvc;
 
     @MockBean
-    private NotificationService notificationService; // Mock the service layer
+    private NotificationService notificationService;
 
     @Autowired
-    private ObjectMapper objectMapper; // For JSON conversion
+    private ObjectMapper objectMapper;
 
     private NotificationDTO testNotification;
     private CreateNotificationDTO createRequest;
 
     @BeforeEach
     void setUp() {
-        // Setup test DTOs
         testNotification = NotificationDTO.builder()
                 .id(1L)
                 .userId("testuser")
@@ -90,7 +68,7 @@ class NotificationControllerIntegrationTest {
     // ========== POST /api/notifications (Create Notification) ==========
 
     @Test
-    @WithMockUser(roles = "ADMIN") // Simulate authenticated admin user
+    @WithMockUser(roles = "ADMIN")
     void testCreateNotification_Success() throws Exception {
         // Arrange: Setup mock service behavior
         when(notificationService.createAndSendNotification(any(CreateNotificationDTO.class)))
@@ -130,7 +108,6 @@ class NotificationControllerIntegrationTest {
                 .contentType(MediaType.APPLICATION_JSON)
                 .content(objectMapper.writeValueAsString(invalidRequest)));
         
-        // This test might pass if title is nullable in DTO
     }
 
     @Test
@@ -149,7 +126,6 @@ class NotificationControllerIntegrationTest {
     @Test
     @WithMockUser(username = "testuser", roles = "PUBLIC")
     void testGetNotifications_Success() throws Exception {
-        // Arrange
         List<NotificationDTO> notifications = Arrays.asList(testNotification);
         Page<NotificationDTO> notificationPage = new PageImpl<>(notifications);
         
@@ -157,7 +133,6 @@ class NotificationControllerIntegrationTest {
                 eq("testuser"), eq(0), eq(10), anyString(), anyString(), eq(null), eq(null)))
                 .thenReturn(notificationPage);
 
-        // Act & Assert
         mockMvc.perform(get("/api/notifications/testuser")
                 .param("page", "0")
                 .param("size", "10")
@@ -176,7 +151,6 @@ class NotificationControllerIntegrationTest {
     @Test
     @WithMockUser(username = "testuser", roles = "PUBLIC")
     void testGetNotifications_WithFilters() throws Exception {
-        // Arrange
         List<NotificationDTO> notifications = Arrays.asList(testNotification);
         Page<NotificationDTO> notificationPage = new PageImpl<>(notifications);
         
@@ -203,12 +177,10 @@ class NotificationControllerIntegrationTest {
     @Test
     @WithMockUser(username = "testuser", roles = "PUBLIC")
     void testGetUnreadNotifications_Success() throws Exception {
-        // Arrange
         List<NotificationDTO> unreadNotifications = Arrays.asList(testNotification);
         when(notificationService.getUnreadNotifications("testuser"))
                 .thenReturn(unreadNotifications);
 
-        // Act & Assert
         mockMvc.perform(get("/api/notifications/testuser/unread")
                 .contentType(MediaType.APPLICATION_JSON))
                 .andExpect(status().isOk())
@@ -225,10 +197,8 @@ class NotificationControllerIntegrationTest {
     @Test
     @WithMockUser(username = "testuser", roles = "PUBLIC")
     void testGetUnreadCount_Success() throws Exception {
-        // Arrange
         when(notificationService.getUnreadCount("testuser")).thenReturn(5L);
 
-        // Act & Assert
         mockMvc.perform(get("/api/notifications/testuser/unread/count")
                 .contentType(MediaType.APPLICATION_JSON))
                 .andExpect(status().isOk())
@@ -241,10 +211,8 @@ class NotificationControllerIntegrationTest {
     @Test
     @WithMockUser(username = "testuser", roles = "PUBLIC")
     void testGetUnreadCount_ZeroUnread() throws Exception {
-        // Arrange
         when(notificationService.getUnreadCount("testuser")).thenReturn(0L);
 
-        // Act & Assert
         mockMvc.perform(get("/api/notifications/testuser/unread/count")
                 .contentType(MediaType.APPLICATION_JSON))
                 .andExpect(status().isOk())
@@ -256,7 +224,6 @@ class NotificationControllerIntegrationTest {
     @Test
     @WithMockUser(username = "testuser", roles = "PUBLIC")
     void testMarkAsRead_Success() throws Exception {
-        // Arrange
         doNothing().when(notificationService).markAsRead(1L, "testuser");
 
         // Act & Assert - Note: userId is passed as query parameter
@@ -293,7 +260,6 @@ class NotificationControllerIntegrationTest {
         doThrow(new IllegalArgumentException("Notification does not belong to user"))
                 .when(notificationService).markAsRead(1L, "hacker");
 
-        // Act & Assert
         mockMvc.perform(patch("/api/notifications/1/read")
                 .param("userId", "hacker")
                 .contentType(MediaType.APPLICATION_JSON))
@@ -307,10 +273,8 @@ class NotificationControllerIntegrationTest {
     @Test
     @WithMockUser(username = "testuser", roles = "PUBLIC")
     void testMarkAllAsRead_Success() throws Exception {
-        // Arrange
         doNothing().when(notificationService).markAllAsRead("testuser");
 
-        // Act & Assert
         mockMvc.perform(patch("/api/notifications/testuser/read-all")
                 .contentType(MediaType.APPLICATION_JSON))
                 .andExpect(status().isOk())
@@ -325,7 +289,6 @@ class NotificationControllerIntegrationTest {
     @Test
     @WithMockUser(username = "testuser", roles = "PUBLIC")
     void testDeleteNotification_Success() throws Exception {
-        // Arrange
         doNothing().when(notificationService).deleteNotification(1L, "testuser");
 
         // Act & Assert - Note: userId is passed as query parameter
@@ -342,7 +305,6 @@ class NotificationControllerIntegrationTest {
     @Test
     @WithMockUser(username = "testuser", roles = "PUBLIC")
     void testDeleteNotification_NotFound() throws Exception {
-        // Arrange
         doThrow(new ResourceNotFoundException("Notification not found"))
                 .when(notificationService).deleteNotification(999L, "testuser");
 
@@ -360,10 +322,8 @@ class NotificationControllerIntegrationTest {
     @Test
     @WithMockUser(username = "testuser", roles = "PUBLIC")
     void testDeleteAllNotifications_Success() throws Exception {
-        // Arrange
         doNothing().when(notificationService).deleteAllForUser("testuser");
 
-        // Act & Assert
         mockMvc.perform(delete("/api/notifications/testuser/all")
                 .contentType(MediaType.APPLICATION_JSON))
                 .andExpect(status().isOk())
@@ -412,7 +372,6 @@ class NotificationControllerIntegrationTest {
                 eq("testuser"), eq(100), eq(10), anyString(), anyString(), eq(null), eq(null)))
                 .thenReturn(emptyPage);
 
-        // Act & Assert
         mockMvc.perform(get("/api/notifications/testuser")
                 .param("page", "100")
                 .param("size", "10")
@@ -429,7 +388,6 @@ class NotificationControllerIntegrationTest {
         when(notificationService.getUnreadNotifications("testuser"))
                 .thenReturn(Arrays.asList());
 
-        // Act & Assert
         mockMvc.perform(get("/api/notifications/testuser/unread")
                 .contentType(MediaType.APPLICATION_JSON))
                 .andExpect(status().isOk())
