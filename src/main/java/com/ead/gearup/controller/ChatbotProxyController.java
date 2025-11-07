@@ -17,6 +17,8 @@ import com.ead.gearup.dto.chatbot.ChatResponse;
 import com.ead.gearup.dto.response.ApiResponseDTO;
 import com.ead.gearup.service.AuditLogService;
 import com.ead.gearup.service.CustomerService;
+import com.ead.gearup.repository.UserRepository;
+import com.ead.gearup.model.User;
 
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.security.SecurityRequirement;
@@ -40,6 +42,7 @@ public class ChatbotProxyController {
     private final CustomerService customerService;
     private final RateLimitConfig rateLimitConfig;
     private final AuditLogService auditLogService;
+    private final UserRepository userRepository;
 
     @Value("${chatbot.service.url:http://localhost:8000}")
     private String chatbotServiceUrl;
@@ -246,12 +249,18 @@ public class ChatbotProxyController {
 
         try {
             String customerEmail = getCurrentCustomerEmail();
-            log.info("Getting chat sessions for customer: {}", customerEmail);
+            Long userId = getCurrentUserId();
+            log.info("Getting chat sessions for customer: {} (user_id: {})", customerEmail, userId);
 
             WebClient webClient = webClientBuilder.build();
+            String sessionsUri = chatbotServiceUrl + "/chat/sessions?limit=" + limit + "&customerEmail=" + customerEmail;
+            if (userId != null) {
+                sessionsUri += "&user_id=" + userId;
+            }
+
             Object sessions = webClient
                     .get()
-                    .uri(chatbotServiceUrl + "/chat/sessions?limit=" + limit + "&customerEmail=" + customerEmail)
+                    .uri(sessionsUri)
                     .retrieve()
                     .bodyToMono(Object.class)
                     .block();
@@ -363,15 +372,21 @@ public class ChatbotProxyController {
 
             // SECURITY FIX: Verify session ownership before deletion
             String authenticatedEmail = getCurrentCustomerEmail();
+            Long userId = getCurrentUserId();
 
             // Audit log - session deletion attempt
             auditLogService.logSessionOperation(authenticatedEmail, "DELETE", sessionId, false);
 
             // First, get all sessions for the authenticated user to verify ownership
             WebClient webClient = webClientBuilder.build();
+            String sessionsUri = chatbotServiceUrl + "/chat/sessions?limit=100&customerEmail=" + authenticatedEmail;
+            if (userId != null) {
+                sessionsUri += "&user_id=" + userId;
+            }
+
             Object sessionsResponse = webClient
                     .get()
-                    .uri(chatbotServiceUrl + "/chat/sessions?limit=100&customerEmail=" + authenticatedEmail)
+                    .uri(sessionsUri)
                     .retrieve()
                     .bodyToMono(Object.class)
                     .block();
@@ -501,10 +516,10 @@ public class ChatbotProxyController {
                 log.error("No authentication found in security context");
                 throw new RuntimeException("User not authenticated");
             }
-            
+
             Object principal = authentication.getPrincipal();
             log.info("Principal type: {}", principal.getClass().getName());
-            
+
             if (principal instanceof UserDetails) {
                 UserDetails userDetails = (UserDetails) principal;
                 String email = userDetails.getUsername();
@@ -521,6 +536,25 @@ public class ChatbotProxyController {
         } catch (Exception e) {
             log.error("Error extracting customer email from security context", e);
             throw e;
+        }
+    }
+
+    /**
+     * Get current customer/user ID from security context
+     */
+    private Long getCurrentUserId() {
+        try {
+            String email = getCurrentCustomerEmail();
+            // Get user by email to find user ID
+            User user = userRepository.findByEmail(email).orElse(null);
+            if (user != null) {
+                return user.getUserId();
+            }
+            log.warn("Could not find user ID for email: {}", email);
+            return null;
+        } catch (Exception e) {
+            log.error("Error extracting user ID from security context", e);
+            return null;
         }
     }
 
