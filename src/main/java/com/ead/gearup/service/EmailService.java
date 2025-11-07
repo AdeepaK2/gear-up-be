@@ -26,6 +26,9 @@ public class EmailService {
     @Value("${app.email.verification.enabled:false}")
     private boolean emailVerificationEnabled;
 
+    @Value("${app.frontend-url:http://localhost:3000}")
+    private String frontendUrl;
+
     public void sendVerificationEmail(String to, String name, String verificationUrl) {
         // For development: Skip actual email sending if disabled
         if (!emailVerificationEnabled) {
@@ -86,7 +89,7 @@ public class EmailService {
             context.setVariable("temporaryPassword", temporaryPassword);
             context.setVariable("role", role);
             context.setVariable("specialization", specialization);
-            context.setVariable("loginUrl", "http://localhost:3000/login");
+            context.setVariable("loginUrl", frontendUrl + "/login");
 
             // Generate HTML content from template
             String htmlContent = templateEngine.process("employee-credentials.html", context);
@@ -124,7 +127,7 @@ public class EmailService {
             context.setVariable("name", name);
             context.setVariable("email", to);
             context.setVariable("temporaryPassword", temporaryPassword);
-            context.setVariable("loginUrl", "http://localhost:3000/login");
+            context.setVariable("loginUrl", frontendUrl + "/login");
 
             // Generate HTML content from template
             String htmlContent = templateEngine.process("employee-password-reset.html", context);

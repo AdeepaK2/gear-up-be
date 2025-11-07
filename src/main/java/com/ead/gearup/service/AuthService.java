@@ -4,6 +4,7 @@ import java.time.LocalDateTime;
 import java.util.HashMap;
 import java.util.Map;
 
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.security.authentication.AuthenticationManager;
 import org.springframework.security.authentication.BadCredentialsException;
@@ -53,6 +54,9 @@ public class AuthService {
     private final CustomUserDetailsService customUserDetailsService;
     private final EmailVerificationService emailVerificationService;
     private final EmailService emailService;
+
+    @Value("${app.frontend-url:http://localhost:3000}")
+    private String frontendUrl;
 
     private static final int COOLDOWN_MINUTES = 5;
 
@@ -198,7 +202,7 @@ public class AuthService {
         String resetToken = jwtService.generatePasswordResetToken(userDetails);
 
         // Send password reset email
-        String resetUrl = "http://localhost:3000/reset-password?token=" + resetToken;
+        String resetUrl = frontendUrl + "/reset-password?token=" + resetToken;
         emailService.sendPasswordResetEmail(user.getEmail(), user.getName(), resetUrl);
 
         // Update last password reset timestamp
