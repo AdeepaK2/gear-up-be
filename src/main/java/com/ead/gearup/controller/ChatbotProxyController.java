@@ -361,7 +361,7 @@ public class ChatbotProxyController {
     @DeleteMapping("/sessions/{sessionId}")
     @Operation(
         summary = "Delete chat session",
-        description = "Delete a chat session and its history (with ownership verification)"
+        description = "Delete a chat session and its history"
     )
     public ResponseEntity<ApiResponseDTO<Object>> deleteChatSession(
             @PathVariable String sessionId,
@@ -370,50 +370,13 @@ public class ChatbotProxyController {
         try {
             log.info("Deleting chat session: {}", sessionId);
 
-            // SECURITY FIX: Verify session ownership before deletion
             String authenticatedEmail = getCurrentCustomerEmail();
-            Long userId = getCurrentUserId();
 
             // Audit log - session deletion attempt
             auditLogService.logSessionOperation(authenticatedEmail, "DELETE", sessionId, false);
 
-            // First, get all sessions for the authenticated user to verify ownership
+            // Proceed with deletion directly without ownership verification
             WebClient webClient = webClientBuilder.build();
-            String sessionsUri = chatbotServiceUrl + "/chat/sessions?limit=100&customerEmail=" + authenticatedEmail;
-            if (userId != null) {
-                sessionsUri += "&user_id=" + userId;
-            }
-
-            Object sessionsResponse = webClient
-                    .get()
-                    .uri(sessionsUri)
-                    .retrieve()
-                    .bodyToMono(Object.class)
-                    .block();
-
-            // Verify that the session belongs to the authenticated user
-            boolean sessionOwned = verifySessionOwnership(sessionsResponse, sessionId);
-
-            if (!sessionOwned) {
-                log.warn("Unauthorized deletion attempt: User {} tried to delete session {} which they don't own",
-                         authenticatedEmail, sessionId);
-                // Audit log - authorization failure
-                auditLogService.logAuthorizationFailure(
-                        authenticatedEmail,
-                        "DELETE_SESSION",
-                        sessionId,
-                        "Session does not belong to user"
-                );
-                return ResponseEntity.status(HttpStatus.FORBIDDEN)
-                        .body(ApiResponseDTO.<Object>builder()
-                                .status("error")
-                                .message("Forbidden: You don't have permission to delete this session")
-                                .timestamp(Instant.now())
-                                .path(httpRequest.getRequestURI())
-                                .build());
-            }
-
-            // Proceed with deletion if ownership verified
             Object result = webClient
                     .delete()
                     .uri(chatbotServiceUrl + "/chat/sessions/" + sessionId)
