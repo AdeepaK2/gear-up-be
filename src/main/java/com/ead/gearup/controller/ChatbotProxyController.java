@@ -44,8 +44,17 @@ public class ChatbotProxyController {
     private final AuditLogService auditLogService;
     private final UserRepository userRepository;
 
-    @Value("${chatbot.service.url:http://localhost:8000}")
+    @Value("${chatbot.python.service.url:http://localhost:8000}")
     private String chatbotServiceUrl;
+
+    /**
+     * Validate that chatbot service URL is configured
+     */
+    private void validateChatbotServiceUrl() {
+        if (chatbotServiceUrl == null || chatbotServiceUrl.trim().isEmpty()) {
+            throw new IllegalStateException("Chatbot service is not configured. Please set CHATBOT_PYTHON_SERVICE_URL environment variable.");
+        }
+    }
 
     /**
      * Process chat request through RAG service
@@ -61,6 +70,9 @@ public class ChatbotProxyController {
             @RequestHeader("Authorization") String authorizationHeader) {
 
         try {
+            // Validate chatbot service configuration
+            validateChatbotServiceUrl();
+            
             String questionPreview = request.getQuestion().substring(0, Math.min(50, request.getQuestion().length()));
             log.info("Processing chat request: {}", questionPreview);
 
@@ -167,6 +179,9 @@ public class ChatbotProxyController {
             HttpServletRequest httpRequest) {
 
         try {
+            // Validate chatbot service configuration
+            validateChatbotServiceUrl();
+            
             log.info("Processing stream chat request: {}", request.getQuestion().substring(0, Math.min(50, request.getQuestion().length())));
 
             // Get authenticated customer context
@@ -250,6 +265,9 @@ public class ChatbotProxyController {
             HttpServletRequest httpRequest) {
 
         try {
+            // Validate chatbot service configuration
+            validateChatbotServiceUrl();
+            
             String customerEmail = getCurrentCustomerEmail();
             Long userId = getCurrentUserId();
             log.info("Getting chat sessions for customer: {} (user_id: {})", customerEmail, userId);
@@ -302,6 +320,9 @@ public class ChatbotProxyController {
             HttpServletRequest httpRequest) {
 
         try {
+            // Validate chatbot service configuration
+            validateChatbotServiceUrl();
+            
             String customerEmail = getCurrentCustomerEmail();
             log.info("Creating new chat session for customer: {}", customerEmail);
             log.info("Calling Python service at: {}/chat/sessions", chatbotServiceUrl);
@@ -370,6 +391,9 @@ public class ChatbotProxyController {
             HttpServletRequest httpRequest) {
 
         try {
+            // Validate chatbot service configuration
+            validateChatbotServiceUrl();
+            
             log.info("Deleting chat session: {}", sessionId);
 
             String authenticatedEmail = getCurrentCustomerEmail();
@@ -441,6 +465,9 @@ public class ChatbotProxyController {
     )
     public ResponseEntity<ApiResponseDTO<Object>> healthCheck(HttpServletRequest httpRequest) {
         try {
+            // Validate chatbot service configuration
+            validateChatbotServiceUrl();
+            
             WebClient webClient = webClientBuilder.build();
             Object health = webClient
                     .get()
