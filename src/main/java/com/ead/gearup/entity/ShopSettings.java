@@ -35,7 +35,7 @@ public class ShopSettings {
     @Column(name = "is_shop_open", nullable = false)
     private Boolean isShopOpen = true;
     
-    @OneToMany(mappedBy = "shopSettings", cascade = CascadeType.ALL, orphanRemoval = true)
+    @OneToMany(mappedBy = "shopSettings", cascade = CascadeType.ALL, orphanRemoval = true, fetch = FetchType.EAGER)
     @Builder.Default
     private List<ClosedDate> closedDates = new ArrayList<>();
     

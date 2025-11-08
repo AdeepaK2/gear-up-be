@@ -29,9 +29,13 @@ public class ShopSettingsService {
     /**
      * Get or create shop settings (singleton pattern)
      */
+    @Transactional(readOnly = true)
     public ShopSettingsDTO getShopSettings() {
         ShopSettings settings = shopSettingsRepository.findFirstByOrderByIdAsc()
                 .orElseGet(() -> createDefaultSettings());
+        
+        // Eagerly initialize the closedDates collection to avoid lazy loading issues
+        settings.getClosedDates().size();
         
         return convertToDTO(settings);
     }
@@ -119,6 +123,37 @@ public class ShopSettingsService {
         List<Integer> operatingDays = settings.getOperatingDaysList();
         
         return operatingDays.contains(dayOfWeek);
+    }
+
+    /**
+     * Check if appointment time is within operating hours
+     */
+    public boolean isWithinOperatingHours(LocalTime time) {
+        ShopSettings settings = shopSettingsRepository.findFirstByOrderByIdAsc()
+                .orElseGet(() -> createDefaultSettings());
+
+        return !time.isBefore(settings.getOpeningTime()) && !time.isAfter(settings.getClosingTime());
+    }
+
+    /**
+     * Check if shop is open on a specific date and time
+     */
+    public boolean isShopOpenOnDateTime(LocalDate date, LocalTime time) {
+        // First check if the date is valid
+        if (!isShopOpenOnDate(date)) {
+            return false;
+        }
+
+        // Then check if the time is within operating hours
+        return isWithinOperatingHours(time);
+    }
+
+    /**
+     * Get operating hours for display
+     */
+    public ShopSettings getShopSettingsEntity() {
+        return shopSettingsRepository.findFirstByOrderByIdAsc()
+                .orElseGet(() -> createDefaultSettings());
     }
 
     /**
