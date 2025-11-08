@@ -45,12 +45,19 @@ public class AppointmentService {
     private final VehicleRepository vehicleRepository;
     private final AppointmentDTOConverter converter;
     private final AppointmentRepository appointmentRepository;
+    private final ShopSettingsService shopSettingsService;
 
     @RequiresRole(UserRole.CUSTOMER)
     public AppointmentResponseDTO createAppointment(AppointmentCreateDTO appointmentCreateDTO) {
         // Validate appointment date is not in the past
         if (appointmentCreateDTO.getAppointmentDate() != null && appointmentCreateDTO.getAppointmentDate().isBefore(LocalDate.now())) {
             throw new IllegalArgumentException("Cannot create appointment for a past date. Please select a current or future date.");
+        }
+
+        // Validate shop is open on the selected date
+        if (appointmentCreateDTO.getAppointmentDate() != null && 
+            !shopSettingsService.isShopOpenOnDate(appointmentCreateDTO.getAppointmentDate())) {
+            throw new IllegalArgumentException("Shop is closed on the selected date. Please choose another date.");
         }
 
         Customer customer = customerRepository.findById(currentUserService.getCurrentEntityId())
