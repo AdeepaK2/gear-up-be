@@ -14,6 +14,7 @@ import com.ead.gearup.dto.appointment.AppointmentSearchResponseDTO;
 import com.ead.gearup.dto.appointment.AppointmentSearchResponseProjection;
 import com.ead.gearup.dto.appointment.AppointmentUpdateDTO;
 import com.ead.gearup.dto.employee.EmployeeAvailableSlotsDTO;
+import com.ead.gearup.entity.ShopSettings;
 import com.ead.gearup.enums.AppointmentStatus;
 import com.ead.gearup.enums.UserRole;
 import com.ead.gearup.exception.AppointmentNotFoundException;
@@ -45,12 +46,40 @@ public class AppointmentService {
     private final VehicleRepository vehicleRepository;
     private final AppointmentDTOConverter converter;
     private final AppointmentRepository appointmentRepository;
+    private final ShopSettingsService shopSettingsService;
 
     @RequiresRole(UserRole.CUSTOMER)
     public AppointmentResponseDTO createAppointment(AppointmentCreateDTO appointmentCreateDTO) {
         // Validate appointment date is not in the past
         if (appointmentCreateDTO.getAppointmentDate() != null && appointmentCreateDTO.getAppointmentDate().isBefore(LocalDate.now())) {
             throw new IllegalArgumentException("Cannot create appointment for a past date. Please select a current or future date.");
+        }
+
+        // Validate shop is open on the selected date
+        if (appointmentCreateDTO.getAppointmentDate() != null && 
+            !shopSettingsService.isShopOpenOnDate(appointmentCreateDTO.getAppointmentDate())) {
+            throw new IllegalArgumentException("Shop is closed on the selected date. Please choose another date.");
+        }
+
+        // Validate appointment time is within operating hours
+        if (appointmentCreateDTO.getStartTime() != null) {
+            if (!shopSettingsService.isWithinOperatingHours(appointmentCreateDTO.getStartTime())) {
+                ShopSettings settings = shopSettingsService.getShopSettingsEntity();
+                throw new IllegalArgumentException(
+                    String.format("Appointment time must be within shop operating hours (%s - %s).",
+                        settings.getOpeningTime(), settings.getClosingTime())
+                );
+            }
+        }
+
+        if (appointmentCreateDTO.getEndTime() != null) {
+            if (!shopSettingsService.isWithinOperatingHours(appointmentCreateDTO.getEndTime())) {
+                ShopSettings settings = shopSettingsService.getShopSettingsEntity();
+                throw new IllegalArgumentException(
+                    String.format("Appointment end time must be within shop operating hours (%s - %s).",
+                        settings.getOpeningTime(), settings.getClosingTime())
+                );
+            }
         }
 
         Customer customer = customerRepository.findById(currentUserService.getCurrentEntityId())

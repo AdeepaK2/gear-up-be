@@ -52,6 +52,7 @@ public class AppointmentController {
     private final AppointmentService appointmentService;
     private final VehicleService vehicleService;
     private final CurrentUserService currentUserService;
+    private final com.ead.gearup.service.ShopSettingsService shopSettingsService;
 
     // @RequiresRole({ UserRole.CUSTOMER })
     @PostMapping(consumes = MediaType.APPLICATION_JSON_VALUE, produces = MediaType.APPLICATION_JSON_VALUE)
@@ -342,6 +343,38 @@ public class AppointmentController {
                 .path(request.getRequestURI())
                 .build();
         return ResponseEntity.ok(response);
+    }
 
+    @GetMapping("/shop-settings")
+    @Operation(
+        summary = "Get shop settings (Public)",
+        description = "Retrieve shop operating hours and days for appointment scheduling. This is a public endpoint accessible without authentication."
+    )
+    @ApiResponses(value = {
+        @ApiResponse(
+            responseCode = "200",
+            description = "Shop settings retrieved successfully",
+            content = @Content(
+                mediaType = "application/json",
+                schema = @Schema(implementation = ApiResponseDTO.class)
+            )
+        )
+    })
+    public ResponseEntity<ApiResponseDTO<com.ead.gearup.dto.settings.ShopSettingsDTO>> getShopSettingsPublic(
+            HttpServletRequest request) {
+        
+        com.ead.gearup.dto.settings.ShopSettingsDTO settings = shopSettingsService.getShopSettings();
+
+        ApiResponseDTO<com.ead.gearup.dto.settings.ShopSettingsDTO> response = 
+            ApiResponseDTO.<com.ead.gearup.dto.settings.ShopSettingsDTO>builder()
+                .status("success")
+                .message("Shop settings retrieved successfully")
+                .data(settings)
+                .timestamp(Instant.now())
+                .path(request.getRequestURI())
+                .build();
+
+        return ResponseEntity.ok(response);
     }
 }
+
