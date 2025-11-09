@@ -69,6 +69,7 @@ public class SecurityConfig {
                         .permitAll()
                         .requestMatchers("/api/v1/admin/**").hasRole("ADMIN")
                         .requestMatchers("/api/v1/chat/**").authenticated() // Chat requires authentication
+                        .requestMatchers("/api/notifications/**").authenticated() // Notifications require authentication
                         // .requestMatchers("/api/v1/customers/**").hasRole("CUSTOMER")
                         // .requestMatchers("/api/v1/employees/**").hasRole("EMPLOYEE")
                         .anyRequest().authenticated())
