@@ -55,6 +55,9 @@ public class JwtService {
         extraClaims.put("role", roleWithoutPrefix);
         extraClaims.put("token_type", "access");
         
+        // Add userId if provided in extraClaims (from AuthService)
+        // This allows quick user identification without database lookup
+        
         // Add requiresPasswordChange flag if present in extraClaims
         // This will be set by the authentication service
 
@@ -159,6 +162,31 @@ public class JwtService {
 
     public String extractRole(String token) {
         return extractClaim(token, claims -> claims.get("role", String.class));
+    }
+
+    /**
+     * Extract user ID from JWT token (if present)
+     * Returns null if userId claim doesn't exist (backward compatible)
+     */
+    public Long extractUserId(String token) {
+        return extractClaim(token, claims -> {
+            Object userId = claims.get("userId");
+            if (userId == null) {
+                return null; // Backward compatible with old tokens
+            }
+            if (userId instanceof Integer) {
+                return ((Integer) userId).longValue();
+            }
+            if (userId instanceof Long) {
+                return (Long) userId;
+            }
+            // Handle string representation
+            try {
+                return Long.parseLong(userId.toString());
+            } catch (NumberFormatException e) {
+                return null;
+            }
+        });
     }
 
     public <T> T extractClaim(String token, Function<Claims, T> claimsResolver) {

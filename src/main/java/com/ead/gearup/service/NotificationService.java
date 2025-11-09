@@ -62,7 +62,8 @@ public class NotificationService {
     @Async
     @Transactional
     public void createAndSendNotificationAsync(CreateNotificationDTO createNotificationDTO) {
-        log.info("Creating notification asynchronously for user: {}", createNotificationDTO.getUserId());
+        long startTime = System.currentTimeMillis();
+        log.info("[NOTIFICATION] Creating asynchronously for user: {}", createNotificationDTO.getUserId());
         
         // Save to database
         Notification notification = Notification.builder()
@@ -73,12 +74,20 @@ public class NotificationService {
                 .isRead(false)
                 .build();
         
+        long beforeSave = System.currentTimeMillis();
         Notification savedNotification = notificationRepository.save(notification);
-        log.info("Notification saved with ID: {}", savedNotification.getId());
+        long saveTime = System.currentTimeMillis() - beforeSave;
+        log.info("[DB SAVE] Notification ID: {} saved in {}ms", savedNotification.getId(), saveTime);
         
         // Send via SSE if user is connected
+        long beforeSSE = System.currentTimeMillis();
         NotificationEventDTO eventDTO = convertToEventDTO(savedNotification);
         sseConnectionManager.sendToUser(savedNotification.getUserId(), eventDTO);
+        long sseTime = System.currentTimeMillis() - beforeSSE;
+        
+        long totalTime = System.currentTimeMillis() - startTime;
+        log.info("[SSE PUSH] Sent in {}ms | TOTAL: {}ms for user: {}", 
+                sseTime, totalTime, createNotificationDTO.getUserId());
     }
 
     // Send notification to multiple users

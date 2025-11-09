@@ -165,9 +165,10 @@ public class AuthService {
         user.setLastLogin(LocalDateTime.now());
         userRepository.save(user);
 
-        // Add requiresPasswordChange flag to JWT token
+        // Add requiresPasswordChange flag and userId to JWT token
         Map<String, Object> extraClaims = new HashMap<>();
         extraClaims.put("requiresPasswordChange", user.getRequiresPasswordChange() != null && user.getRequiresPasswordChange());
+        extraClaims.put("userId", user.getUserId()); // Add numeric user ID for quick lookup
 
         String accessToken = jwtService.generateAccessToken(userPrinciple, extraClaims);
         String refreshToken = jwtService.generateRefreshToken(userPrinciple);
@@ -183,7 +184,15 @@ public class AuthService {
             throw new InvalidRefreshTokenException("Invalid or expired refresh token");
         }
 
-        String newAccessToken = jwtService.generateAccessToken(userDetails);
+        // Add userId to the new access token
+        User user = userRepository.findByEmail(username)
+                .orElseThrow(() -> new UserNotFoundException("User not found with email: " + username));
+        
+        Map<String, Object> extraClaims = new HashMap<>();
+        extraClaims.put("userId", user.getUserId());
+        extraClaims.put("requiresPasswordChange", user.getRequiresPasswordChange() != null && user.getRequiresPasswordChange());
+        
+        String newAccessToken = jwtService.generateAccessToken(userDetails, extraClaims);
 
         LoginResponseDTO loginResponse = new LoginResponseDTO();
         loginResponse.setAccessToken(newAccessToken);
