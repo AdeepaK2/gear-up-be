@@ -55,6 +55,7 @@ public class AdminController {
     private final EmployeeRepository employeeRepository;
     private final PasswordEncoder passwordEncoder;
     private final AdminDashboardService adminDashboardService;
+    private final com.ead.gearup.service.ShopSettingsService shopSettingsService;
 
     @GetMapping("/check-init")
     @Operation(
@@ -368,6 +369,142 @@ public class AdminController {
                 .status("success")
                 .message("Employee migration completed. Created " + migratedCount + " Employee records.")
                 .data(new MigrationResponse(migratedCount, usersWithoutEmployee.size()))
+                .timestamp(Instant.now())
+                .path(request.getRequestURI())
+                .build();
+
+        return ResponseEntity.ok(response);
+    }
+
+    // ==================== Shop Settings Endpoints ====================
+
+    @GetMapping("/settings")
+    @Operation(
+        summary = "Get shop settings",
+        description = "Retrieve current shop operating hours, days, and closed dates"
+    )
+    @ApiResponses(value = {
+        @ApiResponse(
+            responseCode = "200",
+            description = "Shop settings retrieved successfully",
+            content = @Content(
+                mediaType = "application/json",
+                schema = @Schema(implementation = ApiResponseDTO.class)
+            )
+        )
+    })
+    public ResponseEntity<ApiResponseDTO<com.ead.gearup.dto.settings.ShopSettingsDTO>> getShopSettings(
+            HttpServletRequest request) {
+        
+        com.ead.gearup.dto.settings.ShopSettingsDTO settings = shopSettingsService.getShopSettings();
+
+        ApiResponseDTO<com.ead.gearup.dto.settings.ShopSettingsDTO> response = 
+            ApiResponseDTO.<com.ead.gearup.dto.settings.ShopSettingsDTO>builder()
+                .status("success")
+                .message("Shop settings retrieved successfully")
+                .data(settings)
+                .timestamp(Instant.now())
+                .path(request.getRequestURI())
+                .build();
+
+        return ResponseEntity.ok(response);
+    }
+
+    @PostMapping("/settings")
+    @Operation(
+        summary = "Update shop settings",
+        description = "Update shop operating hours, days, and open/closed status"
+    )
+    @ApiResponses(value = {
+        @ApiResponse(
+            responseCode = "200",
+            description = "Shop settings updated successfully",
+            content = @Content(
+                mediaType = "application/json",
+                schema = @Schema(implementation = ApiResponseDTO.class)
+            )
+        )
+    })
+    public ResponseEntity<ApiResponseDTO<com.ead.gearup.dto.settings.ShopSettingsDTO>> updateShopSettings(
+            @Valid @RequestBody com.ead.gearup.dto.settings.UpdateShopSettingsDTO updateDTO,
+            HttpServletRequest request) {
+        
+        com.ead.gearup.dto.settings.ShopSettingsDTO settings = shopSettingsService.updateShopSettings(updateDTO);
+
+        ApiResponseDTO<com.ead.gearup.dto.settings.ShopSettingsDTO> response = 
+            ApiResponseDTO.<com.ead.gearup.dto.settings.ShopSettingsDTO>builder()
+                .status("success")
+                .message("Shop settings updated successfully")
+                .data(settings)
+                .timestamp(Instant.now())
+                .path(request.getRequestURI())
+                .build();
+
+        return ResponseEntity.ok(response);
+    }
+
+    @PostMapping("/settings/closed-dates")
+    @Operation(
+        summary = "Add closed date",
+        description = "Add a date when the shop will be closed (holidays, maintenance, etc.)"
+    )
+    @ApiResponses(value = {
+        @ApiResponse(
+            responseCode = "200",
+            description = "Closed date added successfully",
+            content = @Content(
+                mediaType = "application/json",
+                schema = @Schema(implementation = ApiResponseDTO.class)
+            )
+        )
+    })
+    public ResponseEntity<ApiResponseDTO<com.ead.gearup.dto.settings.ShopSettingsDTO>> addClosedDate(
+            @Valid @RequestBody com.ead.gearup.dto.settings.ClosedDateDTO closedDateDTO,
+            HttpServletRequest request) {
+        
+        com.ead.gearup.dto.settings.ShopSettingsDTO settings = shopSettingsService.addClosedDate(closedDateDTO);
+
+        ApiResponseDTO<com.ead.gearup.dto.settings.ShopSettingsDTO> response = 
+            ApiResponseDTO.<com.ead.gearup.dto.settings.ShopSettingsDTO>builder()
+                .status("success")
+                .message("Closed date added successfully")
+                .data(settings)
+                .timestamp(Instant.now())
+                .path(request.getRequestURI())
+                .build();
+
+        return ResponseEntity.ok(response);
+    }
+
+    @PostMapping("/settings/closed-dates/remove")
+    @Operation(
+        summary = "Remove closed date",
+        description = "Remove a previously added closed date"
+    )
+    @ApiResponses(value = {
+        @ApiResponse(
+            responseCode = "200",
+            description = "Closed date removed successfully",
+            content = @Content(
+                mediaType = "application/json",
+                schema = @Schema(implementation = ApiResponseDTO.class)
+            )
+        )
+    })
+    public ResponseEntity<ApiResponseDTO<com.ead.gearup.dto.settings.ShopSettingsDTO>> removeClosedDate(
+            @RequestBody String date,
+            HttpServletRequest request) {
+        
+        // Remove quotes if present
+        String cleanDate = date.replaceAll("\"", "").trim();
+        
+        com.ead.gearup.dto.settings.ShopSettingsDTO settings = shopSettingsService.removeClosedDate(cleanDate);
+
+        ApiResponseDTO<com.ead.gearup.dto.settings.ShopSettingsDTO> response = 
+            ApiResponseDTO.<com.ead.gearup.dto.settings.ShopSettingsDTO>builder()
+                .status("success")
+                .message("Closed date removed successfully")
+                .data(settings)
                 .timestamp(Instant.now())
                 .path(request.getRequestURI())
                 .build();

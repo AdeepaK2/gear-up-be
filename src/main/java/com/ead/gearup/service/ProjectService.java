@@ -44,6 +44,7 @@ public class ProjectService {
     private final AppointmentRepository appointmentRepository;
     private final VehicleRepository vehicleRepository;
     private final TaskRepository taskRepository;
+    private final ShopSettingsService shopSettingsService;
     private final EmployeeRepository employeeRepository;
     private final ProjectDTOConverter projectDTOConverter;
     private final TaskDTOConverter taskDTOConverter;
@@ -60,6 +61,16 @@ public class ProjectService {
         System.out.println("Appointment ID: " + dto.getAppointmentId());
         System.out.println("Vehicle ID: " + dto.getVehicleId());
         System.out.println("Task IDs: " + dto.getTaskIds());
+
+        // Validate project start date if shop is open
+        if (dto.getStartDate() != null && !shopSettingsService.isShopOpenOnDate(dto.getStartDate())) {
+            throw new IllegalArgumentException("Shop is closed on the selected start date. Please choose another date.");
+        }
+
+        // Validate project end date if shop is open  
+        if (dto.getEndDate() != null && !shopSettingsService.isShopOpenOnDate(dto.getEndDate())) {
+            throw new IllegalArgumentException("Shop is closed on the selected end date. Please choose another date.");
+        }
 
         Appointment appointment = appointmentRepository.findById(dto.getAppointmentId())
                 .orElseThrow(() -> new AppointmentNotFoundException(
