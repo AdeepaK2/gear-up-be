@@ -6,6 +6,7 @@ import static org.junit.jupiter.api.Assertions.*;
 
 import java.time.LocalDateTime;
 import java.util.Arrays;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
 
@@ -18,6 +19,7 @@ import org.mockito.junit.jupiter.MockitoExtension;
 
 import com.ead.gearup.dto.timelog.*;
 import com.ead.gearup.exception.EmployeeNotFoundException;
+import com.ead.gearup.exception.ExceededEstimatedHoursException;
 import com.ead.gearup.exception.ResourceNotFoundException;
 import com.ead.gearup.model.*;
 import com.ead.gearup.repository.*;
@@ -66,10 +68,13 @@ class TimeLogServiceUnitTest {
         // Setup test task
         testTask = new Task();
         testTask.setTaskId(1L);
+        testTask.setEstimatedHours(10); // 10 hours estimated
 
-        // Setup test project
+        // Setup test project with tasks
         testProject = new Project();
         testProject.setProjectId(1L);
+        testProject.setName("Test Project");
+        testProject.setTasks(Arrays.asList(testTask));
 
         // Setup test time log
         testTimeLog = new TimeLog();
@@ -79,6 +84,7 @@ class TimeLogServiceUnitTest {
         testTimeLog.setProject(testProject);
         testTimeLog.setStartTime(LocalDateTime.now());
         testTimeLog.setEndTime(LocalDateTime.now().plusHours(2));
+        testTimeLog.setHoursWorked(2.0);
         testTimeLog.setDescription("Test time log");
 
         // Setup DTOs
@@ -105,7 +111,8 @@ class TimeLogServiceUnitTest {
         when(employeeRepository.findById(1L)).thenReturn(Optional.of(testEmployee));
         when(taskRepository.findById(1L)).thenReturn(Optional.of(testTask));
         when(projectRepository.findById(1L)).thenReturn(Optional.of(testProject));
-        when(converter.convertToEntity(any(), any(), any(), any())).thenReturn(testTimeLog);
+        when(timeLogRepository.getTotalLoggedHoursByProjectId(1L)).thenReturn(5.0); // 5 hours already logged
+        when(converter.convertToEntity(any(), any(), any(), any(), any())).thenReturn(testTimeLog);
         when(timeLogRepository.save(any(TimeLog.class))).thenReturn(testTimeLog);
         when(converter.convertToResponseDTO(any())).thenReturn(responseDTO);
 
@@ -262,5 +269,103 @@ class TimeLogServiceUnitTest {
         // Act & Assert
         assertThrows(ResourceNotFoundException.class, () -> timeLogService.deleteTimeLog(999L));
         verify(timeLogRepository, never()).deleteById(any());
+    }
+
+    // ========== Estimated Hours Validation Tests ==========
+    @Test
+    void testCreateTimeLog_ExceedsEstimatedHours() {
+        // Arrange - Project has 10 hours estimated, 9 hours already logged, trying to log 2 more hours
+        when(currentUserService.getCurrentEntityId()).thenReturn(1L);
+        when(employeeRepository.findById(1L)).thenReturn(Optional.of(testEmployee));
+        when(taskRepository.findById(1L)).thenReturn(Optional.of(testTask));
+        when(projectRepository.findById(1L)).thenReturn(Optional.of(testProject));
+        when(timeLogRepository.getTotalLoggedHoursByProjectId(1L)).thenReturn(9.0);
+
+        // Act & Assert
+        ExceededEstimatedHoursException exception = assertThrows(
+            ExceededEstimatedHoursException.class,
+            () -> timeLogService.createTimeLog(createDTO)
+        );
+        
+        assertTrue(exception.getMessage().contains("exceed estimated hours"));
+        verify(timeLogRepository, never()).save(any());
+    }
+
+    @Test
+    void testCreateTimeLog_ExactlyAtEstimatedHours() {
+        // Arrange - Project has 10 hours estimated, 8 hours already logged, trying to log 2 more hours (total = 10)
+        when(currentUserService.getCurrentEntityId()).thenReturn(1L);
+        when(employeeRepository.findById(1L)).thenReturn(Optional.of(testEmployee));
+        when(taskRepository.findById(1L)).thenReturn(Optional.of(testTask));
+        when(projectRepository.findById(1L)).thenReturn(Optional.of(testProject));
+        when(timeLogRepository.getTotalLoggedHoursByProjectId(1L)).thenReturn(8.0);
+        when(converter.convertToEntity(any(), any(), any(), any(), any())).thenReturn(testTimeLog);
+        when(timeLogRepository.save(any(TimeLog.class))).thenReturn(testTimeLog);
+        when(converter.convertToResponseDTO(any())).thenReturn(responseDTO);
+
+        // Act
+        TimeLogResponseDTO result = timeLogService.createTimeLog(createDTO);
+
+        // Assert - Should succeed as it's exactly at the limit
+        assertNotNull(result);
+        verify(timeLogRepository, times(1)).save(any(TimeLog.class));
+    }
+
+    @Test
+    void testUpdateTimeLog_ExceedsEstimatedHours() {
+        // Arrange
+        testTimeLog.setHoursWorked(2.0);
+        when(timeLogRepository.findById(1L)).thenReturn(Optional.of(testTimeLog));
+        when(timeLogRepository.getTotalLoggedHoursByProjectId(1L)).thenReturn(9.0); // 9 hours total (including current 2)
+        
+        UpdateTimeLogDTO updateDTO = new UpdateTimeLogDTO();
+        updateDTO.setStartTime(LocalDateTime.now());
+        updateDTO.setEndTime(LocalDateTime.now().plusHours(5)); // Trying to change to 5 hours
+
+        // Act & Assert
+        ExceededEstimatedHoursException exception = assertThrows(
+            ExceededEstimatedHoursException.class,
+            () -> timeLogService.updateTimeLog(1L, updateDTO)
+        );
+        
+        assertTrue(exception.getMessage().contains("exceed estimated hours"));
+        verify(timeLogRepository, never()).save(any());
+    }
+
+    @Test
+    void testGetProjectTimeLogSummary_Success() {
+        // Arrange
+        when(projectRepository.findById(1L)).thenReturn(Optional.of(testProject));
+        when(timeLogRepository.getTotalLoggedHoursByProjectId(1L)).thenReturn(6.5);
+
+        // Act
+        ProjectTimeLogSummaryDTO summary = timeLogService.getProjectTimeLogSummary(1L);
+
+        // Assert
+        assertNotNull(summary);
+        assertEquals(1L, summary.getProjectId());
+        assertEquals("Test Project", summary.getProjectName());
+        assertEquals(10, summary.getTotalEstimatedHours());
+        assertEquals(6.5, summary.getTotalLoggedHours());
+        assertEquals(3.5, summary.getRemainingHours());
+        assertEquals(65.0, summary.getPercentageUsed());
+        assertFalse(summary.getIsOverBudget());
+    }
+
+    @Test
+    void testGetProjectTimeLogSummary_OverBudget() {
+        // Arrange
+        when(projectRepository.findById(1L)).thenReturn(Optional.of(testProject));
+        when(timeLogRepository.getTotalLoggedHoursByProjectId(1L)).thenReturn(12.0);
+
+        // Act
+        ProjectTimeLogSummaryDTO summary = timeLogService.getProjectTimeLogSummary(1L);
+
+        // Assert
+        assertNotNull(summary);
+        assertEquals(1L, summary.getProjectId());
+        assertEquals(10, summary.getTotalEstimatedHours());
+        assertEquals(12.0, summary.getTotalLoggedHours());
+        assertTrue(summary.getIsOverBudget());
     }
 }
