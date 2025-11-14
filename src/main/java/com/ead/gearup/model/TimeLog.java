@@ -46,7 +46,7 @@ public class TimeLog {
     private LocalDateTime loggedAt;
 
     @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "employee_id")
+    @JoinColumn(name = "employee_id", nullable = false)
     private Employee employee;
 
     @ManyToOne(fetch = FetchType.LAZY)
@@ -56,6 +56,10 @@ public class TimeLog {
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "task_id")
     private Task task;
+
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "appointment_id")
+    private Appointment appointment;
 
     @PrePersist
     public void prePersist() {

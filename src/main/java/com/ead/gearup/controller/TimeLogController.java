@@ -2,6 +2,7 @@ package com.ead.gearup.controller;
 
 import com.ead.gearup.dto.response.ApiResponseDTO;
 import com.ead.gearup.dto.timelog.CreateTimeLogDTO;
+import com.ead.gearup.dto.timelog.ProjectTimeLogSummaryDTO;
 import com.ead.gearup.dto.timelog.TimeLogResponseDTO;
 import com.ead.gearup.dto.timelog.UpdateTimeLogDTO;
 import com.ead.gearup.service.TimeLogService;
@@ -117,6 +118,44 @@ public class TimeLogController {
                 .timestamp(Instant.now())
                 .path(request.getRequestURI())
                 .data(null)
+                .build();
+
+        return ResponseEntity.ok(response);
+    }
+
+    // @RequiresRole({UserRole.ADMIN, UserRole.EMPLOYEE})
+    @GetMapping("/project/{projectId}/summary")
+    public ResponseEntity<ApiResponseDTO<ProjectTimeLogSummaryDTO>> getProjectTimeLogSummary(
+            @PathVariable Long projectId,
+            HttpServletRequest request) {
+
+        ProjectTimeLogSummaryDTO summary = timeLogService.getProjectTimeLogSummary(projectId);
+
+        ApiResponseDTO<ProjectTimeLogSummaryDTO> response = ApiResponseDTO.<ProjectTimeLogSummaryDTO>builder()
+                .status("success")
+                .message("Project time log summary retrieved successfully")
+                .timestamp(Instant.now())
+                .path(request.getRequestURI())
+                .data(summary)
+                .build();
+
+        return ResponseEntity.ok(response);
+    }
+
+    // @RequiresRole({UserRole.ADMIN, UserRole.EMPLOYEE})
+    @GetMapping("/appointment/{appointmentId}")
+    public ResponseEntity<ApiResponseDTO<List<TimeLogResponseDTO>>> getTimeLogsByAppointment(
+            @PathVariable Long appointmentId,
+            HttpServletRequest request) {
+
+        List<TimeLogResponseDTO> timeLogs = timeLogService.getTimeLogsByAppointment(appointmentId);
+
+        ApiResponseDTO<List<TimeLogResponseDTO>> response = ApiResponseDTO.<List<TimeLogResponseDTO>>builder()
+                .status("success")
+                .message("Appointment time logs retrieved successfully")
+                .timestamp(Instant.now())
+                .path(request.getRequestURI())
+                .data(timeLogs)
                 .build();
 
         return ResponseEntity.ok(response);

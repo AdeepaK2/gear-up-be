@@ -17,4 +17,17 @@ public class TimeLogResponseDTO {
     private Double hoursWorked;
     private LocalDateTime loggedAt;
     private Long taskId;
+    
+    // Employee details
+    private Long employeeId;
+    private String employeeName;
+    private String employeeEmail;
+    
+    // Project details (optional)
+    private Long projectId;
+    private String projectName;
+    
+    // Appointment details (optional)
+    private Long appointmentId;
+    private String appointmentDate;
 }

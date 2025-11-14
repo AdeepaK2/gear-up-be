@@ -366,4 +366,38 @@ public class GlobalExceptionHandler {
         return ResponseEntity.status(HttpStatus.TOO_MANY_REQUESTS).body(response);
     }
 
+    // Handle exceeded estimated hours exception
+    @ExceptionHandler(ExceededEstimatedHoursException.class)
+    public ResponseEntity<ApiResponseDTO<Object>> handleExceededEstimatedHours(
+            ExceededEstimatedHoursException ex,
+            HttpServletRequest request) {
+
+        ApiResponseDTO<Object> response = ApiResponseDTO.builder()
+                .status("error")
+                .message(ex.getMessage())
+                .timestamp(Instant.now())
+                .path(request.getRequestURI())
+                .data(null)
+                .build();
+
+        return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(response);
+    }
+
+    // Handle resource not found exception
+    @ExceptionHandler(ResourceNotFoundException.class)
+    public ResponseEntity<ApiResponseDTO<Object>> handleResourceNotFound(
+            ResourceNotFoundException ex,
+            HttpServletRequest request) {
+
+        ApiResponseDTO<Object> response = ApiResponseDTO.builder()
+                .status("error")
+                .message(ex.getMessage())
+                .timestamp(Instant.now())
+                .path(request.getRequestURI())
+                .data(null)
+                .build();
+
+        return ResponseEntity.status(HttpStatus.NOT_FOUND).body(response);
+    }
+
 }
