@@ -218,4 +218,83 @@ public class EmailService {
             throw new EmailSendingException("Failed to send password reset email: " + e.getMessage(), e);
         }
     }
+
+    public void sendAppointmentReminderEmail(String to, String name, String appointmentDate, 
+                                            String appointmentTime, String vehicleInfo) {
+        // For development: Skip actual email sending if disabled
+        if (!emailVerificationEnabled) {
+            log.info("📧 Email sending DISABLED for development");
+            log.info("📧 Appointment reminder email would be sent to: {}", to);
+            log.info("📧 Appointment: {} at {} for {}", appointmentDate, appointmentTime, vehicleInfo);
+            return;
+        }
+
+        try {
+            String subject = "Reminder: Upcoming Appointment Tomorrow - Gear Up";
+
+            MimeMessage message = mailSender.createMimeMessage();
+            MimeMessageHelper helper = new MimeMessageHelper(message, true, "UTF-8");
+
+            // Prepare Thymeleaf context
+            Context context = new Context();
+            context.setVariable("name", name);
+            context.setVariable("appointmentDate", appointmentDate);
+            context.setVariable("appointmentTime", appointmentTime);
+            context.setVariable("vehicleInfo", vehicleInfo);
+            context.setVariable("supportPhone", "+94 11 234 5678");
+
+            // Generate HTML content from template
+            String htmlContent = templateEngine.process("appointment-reminder.html", context);
+
+            helper.setTo(to);
+            helper.setSubject(subject);
+            helper.setText(htmlContent, true);
+
+            mailSender.send(message);
+            log.info("📧 Appointment reminder email sent successfully to: {}", to);
+
+        } catch (MessagingException e) {
+            log.error("❌ Failed to send appointment reminder email to {}: {}", to, e.getMessage());
+            throw new EmailSendingException("Failed to send appointment reminder email: " + e.getMessage(), e);
+        }
+    }
+
+    public void sendAppointmentUrgentReminderEmail(String to, String name, String appointmentTime, 
+                                                  String vehicleInfo) {
+        // For development: Skip actual email sending if disabled
+        if (!emailVerificationEnabled) {
+            log.info("📧 Email sending DISABLED for development");
+            log.info("📧 Urgent appointment reminder email would be sent to: {}", to);
+            log.info("📧 Appointment: {} for {}", appointmentTime, vehicleInfo);
+            return;
+        }
+
+        try {
+            String subject = "⏰ Your Appointment Starts in 1 Hour - Gear Up";
+
+            MimeMessage message = mailSender.createMimeMessage();
+            MimeMessageHelper helper = new MimeMessageHelper(message, true, "UTF-8");
+
+            // Prepare Thymeleaf context
+            Context context = new Context();
+            context.setVariable("name", name);
+            context.setVariable("appointmentTime", appointmentTime);
+            context.setVariable("vehicleInfo", vehicleInfo);
+            context.setVariable("supportPhone", "+94 11 234 5678");
+
+            // Generate HTML content from template
+            String htmlContent = templateEngine.process("appointment-urgent-reminder.html", context);
+
+            helper.setTo(to);
+            helper.setSubject(subject);
+            helper.setText(htmlContent, true);
+
+            mailSender.send(message);
+            log.info("📧 Urgent appointment reminder email sent successfully to: {}", to);
+
+        } catch (MessagingException e) {
+            log.error("❌ Failed to send urgent appointment reminder email to {}: {}", to, e.getMessage());
+            throw new EmailSendingException("Failed to send urgent appointment reminder email: " + e.getMessage(), e);
+        }
+    }
 }
