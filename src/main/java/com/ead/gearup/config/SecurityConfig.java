@@ -156,6 +156,9 @@ public class SecurityConfig {
                 .toList();
 
         config.setAllowedOriginPatterns(patterns);
+        
+        // TEMPORARY: Allow all origins for debugging (REMOVE IN PRODUCTION!)
+        // config.setAllowedOriginPatterns(List.of("*"));
 
         config.setAllowedHeaders(List.of("*")); // Allow all headers
         config.setAllowedMethods(List.of("GET", "POST", "PUT", "DELETE", "PATCH", "OPTIONS"));
