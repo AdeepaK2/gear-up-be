@@ -3,6 +3,7 @@ package com.ead.gearup.controller;
 import java.time.Duration;
 import java.time.Instant;
 
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
@@ -101,26 +102,23 @@ public class AuthController {
     @GetMapping("/verify-email")
     @Operation(summary = "Verify email address", description = "Verifies a user's email address using the verification token sent via email")
     @ApiResponses(value = {
-            @ApiResponse(responseCode = "200", description = "Email verified successfully", content = @Content(mediaType = "application/json", schema = @Schema(implementation = ApiResponseDTO.class))),
-            @ApiResponse(responseCode = "400", description = "Invalid or expired verification token", content = @Content(mediaType = "application/json", schema = @Schema(implementation = ApiResponseDTO.class)))
+            @ApiResponse(responseCode = "302", description = "Redirects to frontend with verification result"),
+            @ApiResponse(responseCode = "302", description = "Redirects to frontend with error message")
     })
-    public ResponseEntity<ApiResponseDTO<Object>> verifyEmail(
+    public ResponseEntity<Void> verifyEmail(
             @RequestParam("token") @Parameter(description = "Email verification token", required = true, example = "eyJhbGciOiJIUzI1NiJ9...") String token,
-            HttpServletRequest request) {
+            @Value("${app.frontend-url}") String frontendUrl) {
 
         boolean verified = authService.verifyEmailToken(token);
 
-        ApiResponseDTO<Object> response = ApiResponseDTO.builder()
-                .status(verified ? "success" : "error")
-                .message(verified ? "Email verified successfully!" : "Invalid or expired verification token")
-                .timestamp(Instant.now())
-                .path(request.getRequestURI())
-                .data(null)
-                .build();
+        // Redirect to frontend with verification status
+        String redirectUrl = verified 
+                ? frontendUrl + "/auth/verify-success"
+                : frontendUrl + "/auth/verify-failed";
 
-        return verified
-                ? ResponseEntity.ok(response)
-                : ResponseEntity.status(HttpStatus.BAD_REQUEST).body(response);
+        return ResponseEntity.status(HttpStatus.FOUND)
+                .header("Location", redirectUrl)
+                .build();
     }
 
     @PostMapping("/resend-email")
